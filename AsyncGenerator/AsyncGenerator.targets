@@ -1,0 +1,17 @@
+
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <UsingTask TaskName="AsyncGenerator.GenerateAsync" AssemblyFile="AsyncGenerator.dll" />
+
+  <Target Name="GenerateAsync">
+    <ItemGroup>
+      <AsyncList Include="%(Compile.DependentUpon)" Condition="'%(Compile.Generator)' == 'AsyncGenerator'" />
+    </ItemGroup>
+    <GenerateAsync InputFiles="@(AsyncList)" />
+  </Target>
+
+  <PropertyGroup>
+    <CompileDependsOn>GenerateAsync;$(CompileDependsOn)</CompileDependsOn>
+  </PropertyGroup>
+
+</Project>
