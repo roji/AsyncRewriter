@@ -78,6 +78,8 @@
   <ItemGroup>
     <None Include="AsyncGeneratorHelpers.cs" />
     <Compile Include="GenerateAsync.cs" />
+    <Compile Include="Generator.cs" />
+    <Compile Include="Logging.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
