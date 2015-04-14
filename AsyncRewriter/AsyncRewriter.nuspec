@@ -1,22 +1,22 @@
 <?xml version="1.0"?>
 <package >
   <metadata>
-    <id>AsyncGenerator</id>
+    <id>AsyncRewriter</id>
     <version>0.5.0-beta</version>
-    <title>AsyncGenerator</title>
+    <title>AsyncRewriter</title>
     <authors>Shay Rojansky</authors>
     <owners>Shay Rojansky</owners>
     <licenseUrl>http://opensource.org/licenses/MIT</licenseUrl>
-    <projectUrl>http://https://github.com/roji/AsyncGenerator</projectUrl>
+    <projectUrl>http://https://github.com/roji/AsyncRewriter</projectUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
-    <description>Generates code for async methods from sync methods</description>
+    <description>Uses Roslyn to rewrite synchronous C# methods into async counterparts</description>
     <copyright>Copyright 2015</copyright>
-    <tags>async code generation</tags>
+    <tags>async code generation rewrite rewriter</tags>
   </metadata>
   <files>
     <file src="bin\Release\*.dll" target="build" />
     <file src="bin\Release\*.pdb" target="build" />
-    <file src="AsyncGenerator.targets" target="build" />
-    <file src="AsyncGeneratorHelpers.cs" target="content" />
+    <file src="AsyncRewriter.targets" target="build" />
+    <file src="AsyncRewriterHelpers.cs" target="content" />
   </files>
 </package>

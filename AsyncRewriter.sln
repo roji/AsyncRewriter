@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
 VisualStudioVersion = 12.0.31101.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AsyncGenerator", "AsyncGenerator\AsyncGenerator.csproj", "{A089FB8B-0FBE-4B60-86C6-6B34ED0314D7}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AsyncRewriter", "AsyncRewriter\AsyncRewriter.csproj", "{A089FB8B-0FBE-4B60-86C6-6B34ED0314D7}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tests", "Tests\Tests.csproj", "{045678C5-7549-4CF9-AFDA-182F5DBF0A89}"
 EndProject

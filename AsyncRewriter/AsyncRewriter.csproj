@@ -7,8 +7,8 @@
     <ProjectGuid>{A089FB8B-0FBE-4B60-86C6-6B34ED0314D7}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>AsyncGenerator</RootNamespace>
-    <AssemblyName>AsyncGenerator</AssemblyName>
+    <RootNamespace>AsyncRewriter</RootNamespace>
+    <AssemblyName>AsyncRewriter</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">.\</SolutionDir>
@@ -103,15 +103,15 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="AsyncGeneratorHelpers.cs" />
-    <Compile Include="GenerateAsync.cs" />
-    <Compile Include="Generator.cs" />
+    <None Include="AsyncRewriterHelpers.cs" />
+    <Compile Include="RewriteAsync.cs" />
+    <Compile Include="Rewriter.cs" />
     <Compile Include="Logging.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="AsyncGenerator.nuspec" />
-    <None Include="AsyncGenerator.targets" />
+    <None Include="AsyncRewriter.nuspec" />
+    <None Include="AsyncRewriter.targets" />
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

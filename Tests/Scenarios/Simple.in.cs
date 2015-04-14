@@ -7,7 +7,7 @@ namespace Tests.Scenarios
 {
     class Simple
     {
-        [GenerateAsync]
+        [RewriteAsync]
         public int Foo()
         {
             return 8;

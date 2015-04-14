@@ -1,0 +1,17 @@
+
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <UsingTask TaskName="AsyncRewriter.RewriteAsync" AssemblyFile="AsyncRewriter.dll" />
+
+  <Target Name="RewriteAsync">
+    <ItemGroup>
+      <AsyncList Include="%(Compile.DependentUpon)" Condition="'%(Compile.Generator)' == 'AsyncRewriter'" />
+    </ItemGroup>
+    <RewriteAsync InputFiles="@(AsyncList)" />
+  </Target>
+
+  <PropertyGroup>
+    <CompileDependsOn>RewriteAsync;$(CompileDependsOn)</CompileDependsOn>
+  </PropertyGroup>
+
+</Project>

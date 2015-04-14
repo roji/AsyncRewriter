@@ -11,7 +11,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-namespace AsyncGenerator
+namespace AsyncRewriter
 {
     // Map namespaces to classes to methods, for methods that are marked
     using NamespaceToClasses = Dictionary<NamespaceDeclarationSyntax, Dictionary<ClassDeclarationSyntax, HashSet<MethodInfo>>>;
@@ -21,7 +21,7 @@ namespace AsyncGenerator
     /// <remarks>
     /// http://stackoverflow.com/questions/2961753/how-to-hide-files-generated-by-custom-tool-in-visual-studio
     /// </remarks>
-    public class Generator
+    public class Rewriter
     {
         /// <summary>
         /// Invocations of methods on these types never get rewritten to async
@@ -38,17 +38,17 @@ namespace AsyncGenerator
 
         readonly ILogger _log;
 
-        public Generator(ILogger log=null)
+        public Rewriter(ILogger log=null)
         {
             _log = log ?? new ConsoleLoggingAdapter();
         }
 
-        public string[] Generate(params string[] paths)
+        public string[] Rewrite(params string[] paths)
         {
-            return Generate((IEnumerable<string>)paths);
+            return Rewrite((IEnumerable<string>)paths);
         }
 
-        public string[] Generate(IEnumerable<string> paths)
+        public string[] Rewrite(IEnumerable<string> paths)
         {
             var files = paths.Select(p => new SourceFile {
                 Name = p,
@@ -73,7 +73,7 @@ namespace AsyncGenerator
                 corlibSymbol.GetTypeByMetadataName("System.IO.MemoryStream") 
             };
 
-            // First pass: find methods with the [GenerateAsync] attribute
+            // First pass: find methods with the [RewriteAsync] attribute
             foreach (var file in files)
             {
                 foreach (var m in file.SyntaxTree.GetRoot()
@@ -81,8 +81,8 @@ namespace AsyncGenerator
                     .OfType<MethodDeclarationSyntax>()
                 )
                 {
-                    // Syntactically filter out any method without [GenerateAsync] (for performance)
-                    if (m.AttributeLists.SelectMany(al => al.Attributes).All(a => a.Name.ToString() != "GenerateAsync")) {
+                    // Syntactically filter out any method without [RewriteAsync] (for performance)
+                    if (m.AttributeLists.SelectMany(al => al.Attributes).All(a => a.Name.ToString() != "RewriteAsync")) {
                         continue;
                     }
 
@@ -107,7 +107,7 @@ namespace AsyncGenerator
                         WithOverride = false
                     };
 
-                    var attr = methodSymbol.GetAttributes().Single(a => a.AttributeClass.Name == "GenerateAsync");
+                    var attr = methodSymbol.GetAttributes().Single(a => a.AttributeClass.Name == "RewriteAsync");
                     if (attr.ConstructorArguments.Length > 0 && attr.ConstructorArguments[0].Value != null)
                         methodInfo.Transformed = (string)attr.ConstructorArguments[0].Value;
                     if (attr.ConstructorArguments.Length > 1 && ((bool)attr.ConstructorArguments[1].Value))
@@ -212,9 +212,9 @@ namespace AsyncGenerator
             if (symbol == null)
                 return node;
 
-            // Skip invocations of methods that don't have [GenerateAsync], or an Async
+            // Skip invocations of methods that don't have [RewriteAsync], or an Async
             // counterpart to them
-            if (!symbol.GetAttributes().Any(a => a.AttributeClass.Name == "GenerateAsync") && (
+            if (!symbol.GetAttributes().Any(a => a.AttributeClass.Name == "RewriterAsync") && (
                   _excludeTypes.Contains(symbol.ContainingType) ||
                   !symbol.ContainingType.GetMembers(symbol.Name + "Async").Any()
                ))
@@ -259,7 +259,7 @@ namespace AsyncGenerator
                 return rewritten;
             }
 
-            throw new NotSupportedException(String.Format("It seems there's an expression type ({0}) not yet supported by the AsyncGenerator", node.Expression.GetType()));
+            throw new NotSupportedException(String.Format("It seems there's an expression type ({0}) not yet supported by the AsyncRewriter", node.Expression.GetType()));
         }
     }
 

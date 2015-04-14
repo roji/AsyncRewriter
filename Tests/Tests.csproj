@@ -56,9 +56,9 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\AsyncGenerator\AsyncGenerator.csproj">
+    <ProjectReference Include="..\AsyncRewriter\AsyncRewriter.csproj">
       <Project>{a089fb8b-0fbe-4b60-86c6-6b34ed0314d7}</Project>
-      <Name>AsyncGenerator</Name>
+      <Name>AsyncRewriter</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

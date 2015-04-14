@@ -6,7 +6,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
-using AsyncGenerator;
+using AsyncRewriter;
 using NUnit.Framework;
 
 namespace Tests
@@ -16,8 +16,8 @@ namespace Tests
         [Test, TestCaseSource(typeof(AsyncCodeTestCaseSource))]
         public void AllTests(string inPath, string expectedPath)
         {
-            var generator = new Generator();
-            var actualPath = generator.Generate(inPath)[0];
+            var rewriter = new Rewriter();
+            var actualPath = rewriter.Rewrite(inPath)[0];
             try
             {
                 var actual   = string.Join("", File.ReadLines(actualPath).Select(l => l.Replace("\r", "")).ToArray());
