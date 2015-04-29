@@ -228,7 +228,7 @@ namespace AsyncRewriter
             var asIdentifierName = node.Expression as IdentifierNameSyntax;
             if (asIdentifierName != null)
             {
-                ExpressionSyntax rewritten = SyntaxFactory.PrefixUnaryExpression(SyntaxKind.AwaitExpression,
+                ExpressionSyntax rewritten = SyntaxFactory.AwaitExpression(
                     node.WithExpression(asIdentifierName.WithIdentifier(
                         SyntaxFactory.Identifier(asIdentifierName.Identifier.Text + "Async")
                     ))
@@ -241,15 +241,11 @@ namespace AsyncRewriter
             var memberAccessExp = node.Expression as MemberAccessExpressionSyntax;
             if (memberAccessExp != null)
             {
-                // Roslyn apparently doesn't visit MethodInvocationSyntax recursively, so:
-                // Stream.Read().Flush() gets rewritten to await Stream.Read().FlushAsync()
-                // and Read() is still sync. Opened question in the MSDN forum, for now
-                // manually recurse here.
                 var nestedInvocation = memberAccessExp.Expression as InvocationExpressionSyntax;
                 if (nestedInvocation != null)
                     memberAccessExp = memberAccessExp.WithExpression((ExpressionSyntax)VisitInvocationExpression(nestedInvocation));
 
-                ExpressionSyntax rewritten = SyntaxFactory.PrefixUnaryExpression(SyntaxKind.AwaitExpression,
+                ExpressionSyntax rewritten = SyntaxFactory.AwaitExpression(
                     node.WithExpression(memberAccessExp.WithName(
                         memberAccessExp.Name.WithIdentifier(SyntaxFactory.Identifier(memberAccessExp.Name.Identifier.Text + "Async"))
                     ))
