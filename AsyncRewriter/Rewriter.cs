@@ -129,12 +129,18 @@ namespace AsyncRewriter
             return files.Select(f => f.TransformedName).ToArray();
         }
 
-        CompilationUnitSyntax RewriteFile(SourceFile file)
+        SyntaxTree RewriteFile(SourceFile file)
         {
-            return SyntaxFactory.CompilationUnit()
-              .WithUsings(SyntaxFactory.List(
-                  file.SyntaxTree.GetRoot().DescendantNodes().OfType<UsingDirectiveSyntax>().Concat(ExtraUsingDirectives)
-              ))
+            var usings = file.SyntaxTree.GetRoot().DescendantNodes().OfType<UsingDirectiveSyntax>().ToList();
+
+            // Add the extra using directives
+            usings.AddRange(ExtraUsingDirectives);
+
+            // Add #pragma warning disable at the top of the file
+            usings[0] = usings[0].WithLeadingTrivia(SyntaxFactory.Trivia(SyntaxFactory.PragmaWarningDirectiveTrivia(SyntaxFactory.Token(SyntaxKind.DisableKeyword), true)));
+
+            var root = SyntaxFactory.CompilationUnit()
+              .WithUsings(SyntaxFactory.List(usings))
               .WithMembers(SyntaxFactory.List<MemberDeclarationSyntax>(file.NamespaceToClasses.Select(ntc =>
                   SyntaxFactory.NamespaceDeclaration(ntc.Key.Name)
                   .WithMembers(SyntaxFactory.List<MemberDeclarationSyntax>(ntc.Value.Select(mbc =>
@@ -145,6 +151,8 @@ namespace AsyncRewriter
               )))
               .WithEndOfFileToken(SyntaxFactory.Token(SyntaxKind.EndOfFileToken))
               .NormalizeWhitespace();
+
+            return SyntaxFactory.SyntaxTree(root);
         }
 
         MethodDeclarationSyntax RewriteMethod(SourceFile file, MethodInfo inMethodInfo)
