@@ -79,13 +79,9 @@ namespace AsyncRewriter
                 foreach (var m in file.SyntaxTree.GetRoot()
                     .DescendantNodes()
                     .OfType<MethodDeclarationSyntax>()
+                    .Where(m => m.AttributeLists.SelectMany(al => al.Attributes).Any(a => a.Name.ToString() == "RewriteAsync"))
                 )
                 {
-                    // Syntactically filter out any method without [RewriteAsync] (for performance)
-                    if (m.AttributeLists.SelectMany(al => al.Attributes).All(a => a.Name.ToString() != "RewriteAsync")) {
-                        continue;
-                    }
-
                     var methodSymbol = file.SemanticModel.GetDeclaredSymbol(m);
 
                     var cls = m.FirstAncestorOrSelf<ClassDeclarationSyntax>();
@@ -222,7 +218,7 @@ namespace AsyncRewriter
 
             // Skip invocations of methods that don't have [RewriteAsync], or an Async
             // counterpart to them
-            if (!symbol.GetAttributes().Any(a => a.AttributeClass.Name == "RewriterAsync") && (
+            if (!symbol.GetAttributes().Any(a => a.AttributeClass.Name == "RewriteAsync") && (
                   _excludeTypes.Contains(symbol.ContainingType) ||
                   !symbol.ContainingType.GetMembers(symbol.Name + "Async").Any()
                ))

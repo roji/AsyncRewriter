@@ -16,7 +16,7 @@ namespace Tests
         [Test, TestCaseSource(typeof(AsyncCodeTestCaseSource))]
         public void AllTests(string inPath, string expectedPath)
         {
-            var rewriter = new Rewriter();
+            var rewriter = new Rewriter(new ConsoleLoggingAdapter(LogLevel.Debug));
             var actualPath = rewriter.Rewrite(inPath)[0];
             try
             {
