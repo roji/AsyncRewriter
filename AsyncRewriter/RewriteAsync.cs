@@ -24,7 +24,7 @@ namespace AsyncRewriter
 
         public RewriteAsync()
         {
-            _rewriter = new Rewriter();
+            _rewriter = new Rewriter(new TaskLoggingAdapter(Log));
         }
 
         public override bool Execute()
