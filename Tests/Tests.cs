@@ -7,6 +7,8 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using AsyncRewriter;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using NUnit.Framework;
 
 namespace Tests
@@ -20,8 +22,8 @@ namespace Tests
             var actualPath = rewriter.Rewrite(inPath)[0];
             try
             {
-                var actual   = string.Join("", File.ReadLines(actualPath).Select(l => l.Replace("\r", "")).ToArray());
-                var expected = string.Join("", File.ReadLines(expectedPath).Select(l => l.Replace("\r", "")).ToArray());
+                var actual = SyntaxFactory.SyntaxTree(SyntaxFactory.ParseCompilationUnit(File.ReadAllText(actualPath)).NormalizeWhitespace()).ToString();
+                var expected = SyntaxFactory.SyntaxTree(SyntaxFactory.ParseCompilationUnit(File.ReadAllText(expectedPath)).NormalizeWhitespace()).ToString();
                 if (actual != expected)
                 {
                     Console.WriteLine("Actual:");
