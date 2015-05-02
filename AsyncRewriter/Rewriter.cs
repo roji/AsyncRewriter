@@ -36,11 +36,22 @@ namespace AsyncRewriter
             SyntaxFactory.UsingDirective(SyntaxFactory.ParseName("System.Threading.Tasks")),
         };
 
+        /// <summary>
+        /// Contains the parsed contents of the AsyncRewriterHelpers.cs file (essentially
+        /// <see cref="RewriteAsync"/> which needs to always be compiled in.
+        /// </summary>
+        SyntaxTree _asyncHelpersSyntaxTree;
+
         readonly ILogger _log;
 
         public Rewriter(ILogger log=null)
         {
             _log = log ?? new ConsoleLoggingAdapter();
+            // ReSharper disable once AssignNullToNotNullAttribute
+            using (var reader = new StreamReader(typeof(Rewriter).Assembly.GetManifestResourceStream("AsyncRewriter.AsyncRewriterHelpers.cs")))
+            {
+                _asyncHelpersSyntaxTree = SyntaxFactory.ParseSyntaxTree(reader.ReadToEnd());
+            }
         }
 
         public string[] Rewrite(params string[] paths)
@@ -60,8 +71,9 @@ namespace AsyncRewriter
 
             var compilation = CSharpCompilation.Create(
                 "Temp",
-                files.Select(f => f.SyntaxTree),
-                new[] { mscorlib, datalib }
+                files.Select(f => f.SyntaxTree).Concat(new[] { _asyncHelpersSyntaxTree }),
+                new[] { mscorlib, datalib },
+                new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
             );
             foreach (var file in files) {
                 file.SemanticModel = compilation.GetSemanticModel(file.SyntaxTree);
@@ -100,14 +112,14 @@ namespace AsyncRewriter
                         DeclarationSyntax = m,
                         Symbol = methodSymbol,
                         Transformed = m.Identifier.Text + "Async",
-                        WithOverride = false
+                        WithOverride = false,
                     };
 
-                    var attr = methodSymbol.GetAttributes().Single(a => a.AttributeClass.Name == "RewriteAsync");
+                    var attr = methodSymbol.GetAttributes().Single(a => a.AttributeClass.Name == "RewriteAsyncAttribute");
                     if (attr.ConstructorArguments.Length > 0 && attr.ConstructorArguments[0].Value != null)
                         methodInfo.Transformed = (string)attr.ConstructorArguments[0].Value;
-                    if (attr.ConstructorArguments.Length > 1 && ((bool)attr.ConstructorArguments[1].Value))
-                        methodInfo.WithOverride = true;
+                    if (attr.ConstructorArguments.Length > 1)
+                        methodInfo.WithOverride = (bool)attr.ConstructorArguments[1].Value;
                     methods.Add(methodInfo);
                 }
             }
@@ -128,6 +140,9 @@ namespace AsyncRewriter
         SyntaxTree RewriteFile(SourceFile file)
         {
             var usings = file.SyntaxTree.GetRoot().DescendantNodes().OfType<UsingDirectiveSyntax>().ToList();
+
+            // Remove the AsyncRewriter using directive
+            usings.Remove(usings.Single(u => u.Name.ToString() == "AsyncRewriter"));
 
             // Add the extra using directives
             usings.AddRange(ExtraUsingDirectives);
@@ -218,7 +233,7 @@ namespace AsyncRewriter
 
             // Skip invocations of methods that don't have [RewriteAsync], or an Async
             // counterpart to them
-            if (!symbol.GetAttributes().Any(a => a.AttributeClass.Name == "RewriteAsync") && (
+            if (!symbol.GetAttributes().Any(a => a.AttributeClass.Name == "RewriteAsyncAttribute") && (
                   _excludeTypes.Contains(symbol.ContainingType) ||
                   !symbol.ContainingType.GetMembers(symbol.Name + "Async").Any()
                ))

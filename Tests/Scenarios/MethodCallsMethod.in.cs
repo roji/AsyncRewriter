@@ -1,4 +1,5 @@
 ﻿using System;
+using AsyncRewriter;
 
 namespace Tests.Scenarios
 {

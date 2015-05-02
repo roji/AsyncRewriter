@@ -83,6 +83,18 @@
     <Content Include="Scenarios\MemberOfMember.out.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="Scenarios\WithOverride.in.cs">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Scenarios\WithOverride.out.cs">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Scenarios\WithoutOverride.in.cs">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Scenarios\WithoutOverride.out.cs">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Compile Include="Tests.cs" />
     <Content Include="Scenarios\Simple.in.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

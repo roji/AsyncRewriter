@@ -104,7 +104,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
-    <None Include="AsyncRewriterHelpers.cs" />
+    <EmbeddedResource Include="AsyncRewriterHelpers.cs" />
     <Compile Include="RewriteAsync.cs" />
     <Compile Include="Rewriter.cs" />
     <Compile Include="Logging.cs" />
