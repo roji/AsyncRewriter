@@ -19,26 +19,20 @@ namespace Tests
         public void AllTests(string inPath, string expectedPath)
         {
             var rewriter = new Rewriter(new ConsoleLoggingAdapter(LogLevel.Debug));
-            var actualPath = rewriter.Rewrite(inPath)[0];
-            try
+            var actual = rewriter.RewriteAndMerge(new[] { inPath });
+
+            actual = SyntaxFactory.SyntaxTree(SyntaxFactory.ParseCompilationUnit(actual).NormalizeWhitespace()).ToString();
+            var expected = SyntaxFactory.SyntaxTree(SyntaxFactory.ParseCompilationUnit(File.ReadAllText(expectedPath)).NormalizeWhitespace()).ToString();
+            if (actual != expected)
             {
-                var actual = SyntaxFactory.SyntaxTree(SyntaxFactory.ParseCompilationUnit(File.ReadAllText(actualPath)).NormalizeWhitespace()).ToString();
-                var expected = SyntaxFactory.SyntaxTree(SyntaxFactory.ParseCompilationUnit(File.ReadAllText(expectedPath)).NormalizeWhitespace()).ToString();
-                if (actual != expected)
-                {
-                    Console.WriteLine("Actual:");
-                    Console.WriteLine(actual);
-                    Console.WriteLine("********");
-                    Console.WriteLine("Expected:");
-                    Console.WriteLine(expected);
-                    Console.WriteLine("********");
-                }
-                Assert.That(actual, Is.EqualTo(expected));
+                Console.WriteLine("Actual:");
+                Console.WriteLine(actual);
+                Console.WriteLine("********");
+                Console.WriteLine("Expected:");
+                Console.WriteLine(expected);
+                Console.WriteLine("********");
             }
-            finally
-            {
-                File.Delete(actualPath);
-            }
+            Assert.That(actual, Is.EqualTo(expected));
         }
     }
 

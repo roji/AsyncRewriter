@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -17,8 +18,8 @@ namespace AsyncRewriter
     {
         [Required]
         public ITaskItem[] InputFiles { get; set; }
-        [Output]
-        public ITaskItem[] OutputFiles { get; set; }
+        [Required]
+        public ITaskItem OutputFile { get; set; }
 
         readonly Rewriter _rewriter;
 
@@ -29,8 +30,8 @@ namespace AsyncRewriter
 
         public override bool Execute()
         {
-            var outputPaths = _rewriter.Rewrite(InputFiles.Select(f => f.ItemSpec));
-            OutputFiles = outputPaths.Select(p => new TaskItem(p)).ToArray();
+            var asyncCode = _rewriter.RewriteAndMerge(InputFiles.Select(f => f.ItemSpec));
+            File.WriteAllText(OutputFile.ItemSpec, asyncCode);
             return true;
         }
     }

@@ -4,6 +4,7 @@ using System.Data;
 using System.IO;
 using System.Linq;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text;
 using System.Threading.Tasks;
@@ -40,7 +41,7 @@ namespace AsyncRewriter
         /// Contains the parsed contents of the AsyncRewriterHelpers.cs file (essentially
         /// <see cref="RewriteAsync"/> which needs to always be compiled in.
         /// </summary>
-        SyntaxTree _asyncHelpersSyntaxTree;
+        readonly SyntaxTree _asyncHelpersSyntaxTree;
 
         readonly ILogger _log;
 
@@ -54,132 +55,113 @@ namespace AsyncRewriter
             }
         }
 
-        public string[] Rewrite(params string[] paths)
+        public string RewriteAndMerge(IEnumerable<string> paths, params string[] additionalAssemblyNames)
         {
-            return Rewrite((IEnumerable<string>)paths);
-        }
-
-        public string[] Rewrite(IEnumerable<string> paths)
-        {
-            var files = paths.Select(p => new SourceFile {
-                Name = p,
-                SyntaxTree = SyntaxFactory.ParseSyntaxTree(File.ReadAllText(p))
-            }).ToList();
-
-            var mscorlib = MetadataReference.CreateFromAssembly(typeof(object).Assembly);
-            var datalib = MetadataReference.CreateFromAssembly(typeof(CommandBehavior).Assembly);
+            var syntaxTrees = paths.Select(p => SyntaxFactory.ParseSyntaxTree(File.ReadAllText(p))).ToArray();
 
             var compilation = CSharpCompilation.Create(
                 "Temp",
-                files.Select(f => f.SyntaxTree).Concat(new[] { _asyncHelpersSyntaxTree }),
-                new[] { mscorlib, datalib },
+                syntaxTrees.Concat(new[] { _asyncHelpersSyntaxTree }),
+                additionalAssemblyNames
+                    .Select(n => MetadataReference.CreateFromAssembly(Assembly.Load(n)))
+                    .Concat(new[] { MetadataReference.CreateFromAssembly(typeof(object).Assembly) }),
                 new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
             );
-            foreach (var file in files) {
-                file.SemanticModel = compilation.GetSemanticModel(file.SyntaxTree);
-            }
 
-            var corlibSymbol = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(mscorlib);
+            return RewriteAndMerge(syntaxTrees, compilation).ToString();
+        }
+
+        public SyntaxTree RewriteAndMerge(SyntaxTree[] syntaxTrees, CSharpCompilation compilation)
+        {
+            var rewrittenTrees = Rewrite(syntaxTrees, compilation).ToArray();
+
+            return SyntaxFactory.SyntaxTree(
+                SyntaxFactory.CompilationUnit()
+                    .WithUsings(SyntaxFactory.List(
+                        rewrittenTrees
+                            .SelectMany(t => t.GetCompilationUnitRoot().Usings)
+                            .Distinct())
+                    )
+                    .WithMembers(SyntaxFactory.List(rewrittenTrees.SelectMany(t => t.GetCompilationUnitRoot().Members)))
+                    .WithEndOfFileToken(SyntaxFactory.Token(SyntaxKind.EndOfFileToken))
+                    .NormalizeWhitespace()
+            );
+        }
+
+        public IEnumerable<SyntaxTree> Rewrite(SyntaxTree[] syntaxTrees, CSharpCompilation compilation)
+        {
             _excludedTypes = new HashSet<ITypeSymbol> {
-                corlibSymbol.GetTypeByMetadataName("System.IO.TextWriter"),
-                corlibSymbol.GetTypeByMetadataName("System.IO.MemoryStream") 
+                compilation.GetTypeByMetadataName("System.IO.TextWriter"),
+                compilation.GetTypeByMetadataName("System.IO.MemoryStream")
             };
 
-            // First pass: find methods with the [RewriteAsync] attribute
-            foreach (var file in files)
+            foreach (var syntaxTree in syntaxTrees)
             {
-                foreach (var m in file.SyntaxTree.GetRoot()
+                var semanticModel = compilation.GetSemanticModel(syntaxTree, true);
+                if (semanticModel == null)
+                    throw new ArgumentException("A provided syntax tree was compiled into the provided compilation");
+
+                var usings = syntaxTree.GetCompilationUnitRoot().Usings;
+
+                var asyncRewriterUsing = usings.SingleOrDefault(u => u.Name.ToString() == "AsyncRewriter");
+                if (asyncRewriterUsing == null)
+                    continue;   // No "using AsyncRewriter", skip this file
+
+                usings = usings
+                    // Remove the AsyncRewriter using directive
+                    .Remove(asyncRewriterUsing)
+                    // Add the extra using directives
+                    .AddRange(ExtraUsingDirectives);
+
+                // Add #pragma warning disable at the top of the file
+                usings = usings.Replace(usings[0], usings[0].WithLeadingTrivia(SyntaxFactory.Trivia(SyntaxFactory.PragmaWarningDirectiveTrivia(SyntaxFactory.Token(SyntaxKind.DisableKeyword), true))));
+                    
+                var namespaces = SyntaxFactory.List<MemberDeclarationSyntax>(
+                    syntaxTree.GetRoot()
                     .DescendantNodes()
                     .OfType<MethodDeclarationSyntax>()
                     .Where(m => m.AttributeLists.SelectMany(al => al.Attributes).Any(a => a.Name.ToString() == "RewriteAsync"))
-                )
-                {
-                    var methodSymbol = file.SemanticModel.GetDeclaredSymbol(m);
+                    .GroupBy(m => m.FirstAncestorOrSelf<ClassDeclarationSyntax>())
+                    .GroupBy(g => g.Key.FirstAncestorOrSelf<NamespaceDeclarationSyntax>())
+                    .Select(nsGrp =>
+                        SyntaxFactory.NamespaceDeclaration(nsGrp.Key.Name)
+                        .WithMembers(SyntaxFactory.List<MemberDeclarationSyntax>(nsGrp.Select(clsGrp =>
+                            SyntaxFactory.ClassDeclaration(clsGrp.Key.Identifier)
+                            .WithModifiers(clsGrp.Key.Modifiers)
+                            .WithMembers(SyntaxFactory.List<MemberDeclarationSyntax>(
+                                clsGrp.Select(m => RewriteMethod(m, semanticModel))
+                            ))
+                        )))
+                    )
+                );
 
-                    var cls = m.FirstAncestorOrSelf<ClassDeclarationSyntax>();
-                    var ns = cls.FirstAncestorOrSelf<NamespaceDeclarationSyntax>();
-
-                    Dictionary<ClassDeclarationSyntax, HashSet<MethodInfo>> classes;
-                    if (!file.NamespaceToClasses.TryGetValue(ns, out classes))
-                        classes = file.NamespaceToClasses[ns] = new Dictionary<ClassDeclarationSyntax, HashSet<MethodInfo>>();
-
-                    HashSet<MethodInfo> methods;
-                    if (!classes.TryGetValue(cls, out methods))
-                        methods = classes[cls] = new HashSet<MethodInfo>();
-
-                    var methodInfo = new MethodInfo
-                    {
-                        DeclarationSyntax = m,
-                        Symbol = methodSymbol,
-                        Transformed = m.Identifier.Text + "Async",
-                        WithOverride = false,
-                    };
-
-                    var attr = methodSymbol.GetAttributes().Single(a => a.AttributeClass.Name == "RewriteAsyncAttribute");
-                    if (attr.ConstructorArguments.Length > 0 && attr.ConstructorArguments[0].Value != null)
-                        methodInfo.Transformed = (string)attr.ConstructorArguments[0].Value;
-                    if (attr.ConstructorArguments.Length > 1)
-                        methodInfo.WithOverride = (bool)attr.ConstructorArguments[1].Value;
-                    methods.Add(methodInfo);
-                }
+                yield return SyntaxFactory.SyntaxTree(
+                    SyntaxFactory.CompilationUnit()
+                        .WithUsings(SyntaxFactory.List(usings))
+                        .WithMembers(namespaces)
+                        .WithEndOfFileToken(SyntaxFactory.Token(SyntaxKind.EndOfFileToken))
+                        .NormalizeWhitespace()
+                );
             }
-
-            _log.Info("Found {0} methods marked for async rewriting",
-                      files.SelectMany(f => f.NamespaceToClasses.Values).SelectMany(ctm => ctm.Values).SelectMany(m => m).Count());
-
-            // Second pass: transform
-            foreach (var f in files)
-            {
-                _log.Info("Writing out {0}", f.TransformedName);
-                File.WriteAllText(f.TransformedName, RewriteFile(f).ToString());
-            }
-
-            return files.Select(f => f.TransformedName).ToArray();
         }
 
-        SyntaxTree RewriteFile(SourceFile file)
+        MethodDeclarationSyntax RewriteMethod(MethodDeclarationSyntax inMethodSyntax, SemanticModel semanticModel)
         {
-            var usings = file.SyntaxTree.GetRoot().DescendantNodes().OfType<UsingDirectiveSyntax>().ToList();
+            var inMethodSymbol = semanticModel.GetDeclaredSymbol(inMethodSyntax);
 
-            // Remove the AsyncRewriter using directive
-            usings.Remove(usings.Single(u => u.Name.ToString() == "AsyncRewriter"));
-
-            // Add the extra using directives
-            usings.AddRange(ExtraUsingDirectives);
-
-            // Add #pragma warning disable at the top of the file
-            usings[0] = usings[0].WithLeadingTrivia(SyntaxFactory.Trivia(SyntaxFactory.PragmaWarningDirectiveTrivia(SyntaxFactory.Token(SyntaxKind.DisableKeyword), true)));
-
-            var root = SyntaxFactory.CompilationUnit()
-              .WithUsings(SyntaxFactory.List(usings))
-              .WithMembers(SyntaxFactory.List<MemberDeclarationSyntax>(file.NamespaceToClasses.Select(ntc =>
-                  SyntaxFactory.NamespaceDeclaration(ntc.Key.Name)
-                  .WithMembers(SyntaxFactory.List<MemberDeclarationSyntax>(ntc.Value.Select(mbc =>
-                      SyntaxFactory.ClassDeclaration(mbc.Key.Identifier)
-                      .WithModifiers(mbc.Key.Modifiers)
-                      .WithMembers(SyntaxFactory.List<MemberDeclarationSyntax>(mbc.Value.Select(m => RewriteMethod(file, m))))
-                  ).ToArray()))
-              )))
-              .WithEndOfFileToken(SyntaxFactory.Token(SyntaxKind.EndOfFileToken))
-              .NormalizeWhitespace();
-
-            return SyntaxFactory.SyntaxTree(root);
-        }
-
-        MethodDeclarationSyntax RewriteMethod(SourceFile file, MethodInfo inMethodInfo)
-        {
-            var inMethodSyntax = inMethodInfo.DeclarationSyntax;
             //Log.LogMessage("Method {0}: {1}", inMethodInfo.Symbol.Name, inMethodInfo.Symbol.);
 
-            _log.Debug("  Rewriting method {0} to {1}", inMethodInfo.Symbol.Name, inMethodInfo.Transformed);
+            var outMethodName = inMethodSyntax.Identifier.Text + "Async";
+
+            _log.Debug("  Rewriting method {0} to {1}", inMethodSymbol.Name, outMethodName);
 
             // Visit all method invocations inside the method, rewrite them to async if needed
-            var rewriter = new MethodInvocationRewriter(_log, file.SemanticModel, _excludedTypes);
+            var rewriter = new MethodInvocationRewriter(_log, semanticModel, _excludedTypes);
             var outMethod = (MethodDeclarationSyntax)rewriter.Visit(inMethodSyntax);
 
             // Method signature
             outMethod = outMethod
-                .WithIdentifier(SyntaxFactory.Identifier(inMethodInfo.Transformed))
+                .WithIdentifier(SyntaxFactory.Identifier(outMethodName))
                 .WithAttributeLists(new SyntaxList<AttributeListSyntax>())
                 .WithModifiers(inMethodSyntax.Modifiers
                   .Add(SyntaxFactory.Token(SyntaxKind.AsyncKeyword))
@@ -204,7 +186,10 @@ namespace AsyncRewriter
                 i++;
             }
 
-            if (inMethodInfo.WithOverride) {
+            var attr = inMethodSymbol.GetAttributes().Single(a => a.AttributeClass.Name == "RewriteAsyncAttribute");
+
+            if (attr.ConstructorArguments.Length > 0 && (bool) attr.ConstructorArguments[0].Value)
+            {
                 outMethod = outMethod.AddModifiers(SyntaxFactory.Token(SyntaxKind.OverrideKeyword));
             }
 
@@ -243,18 +228,22 @@ namespace AsyncRewriter
 
             _log.Debug("    Found rewritable invocation: " + symbol);
 
-            // Rewrite the method name and prefix the invocation with await
-            var asIdentifierName = node.Expression as IdentifierNameSyntax;
-            if (asIdentifierName != null)
+            var rewritten = RewriteExpression(node);
+            if (!(node.Parent is StatementSyntax))
+                rewritten = SyntaxFactory.ParenthesizedExpression(rewritten);
+            return rewritten;
+        }
+
+        ExpressionSyntax RewriteExpression(InvocationExpressionSyntax node)
+        {
+            var identifierName = node.Expression as IdentifierNameSyntax;
+            if (identifierName != null)
             {
-                ExpressionSyntax rewritten = SyntaxFactory.AwaitExpression(
-                    node.WithExpression(asIdentifierName.WithIdentifier(
-                        SyntaxFactory.Identifier(asIdentifierName.Identifier.Text + "Async")
+                return SyntaxFactory.AwaitExpression(
+                    node.WithExpression(identifierName.WithIdentifier(
+                        SyntaxFactory.Identifier(identifierName.Identifier.Text + "Async")
                     ))
                 );
-                if (!(node.Parent is StatementSyntax))
-                    rewritten = SyntaxFactory.ParenthesizedExpression(rewritten);
-                return rewritten;
             }
 
             var memberAccessExp = node.Expression as MemberAccessExpressionSyntax;
@@ -264,37 +253,24 @@ namespace AsyncRewriter
                 if (nestedInvocation != null)
                     memberAccessExp = memberAccessExp.WithExpression((ExpressionSyntax)VisitInvocationExpression(nestedInvocation));
 
-                ExpressionSyntax rewritten = SyntaxFactory.AwaitExpression(
+                return SyntaxFactory.AwaitExpression(
                     node.WithExpression(memberAccessExp.WithName(
                         memberAccessExp.Name.WithIdentifier(SyntaxFactory.Identifier(memberAccessExp.Name.Identifier.Text + "Async"))
                     ))
                 );
-                if (!(node.Parent is StatementSyntax))
-                    rewritten = SyntaxFactory.ParenthesizedExpression(rewritten);
-                return rewritten;
             }
 
-            throw new NotSupportedException(String.Format("It seems there's an expression type ({0}) not yet supported by the AsyncRewriter", node.Expression.GetType()));
-        }
-    }
+            var genericNameExp = node.Expression as GenericNameSyntax;
+            if (genericNameExp != null)
+            {
+                return SyntaxFactory.AwaitExpression(
+                    node.WithExpression(
+                        genericNameExp.WithIdentifier(SyntaxFactory.Identifier(genericNameExp.Identifier.Text + "Async"))
+                    )
+                );
+            }
 
-    class SourceFile
-    {
-        public string Name;
-        public SyntaxTree SyntaxTree;
-        public SemanticModel SemanticModel;
-        public NamespaceToClasses NamespaceToClasses = new NamespaceToClasses();
-        public string TransformedName
-        {
-            get { return Name.Replace(".cs", ".Async.cs"); }
+            throw new NotSupportedException($"It seems there's an expression type ({node.Expression.GetType().Name}) not yet supported by the AsyncRewriter");
         }
-    }
-
-    class MethodInfo
-    {
-        public MethodDeclarationSyntax DeclarationSyntax;
-        public IMethodSymbol Symbol;
-        public string Transformed;
-        public bool WithOverride;
     }
 }
