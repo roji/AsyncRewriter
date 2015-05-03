@@ -38,6 +38,16 @@ namespace AsyncRewriter
         };
 
         /// <summary>
+        /// Calls of methods on these types never get rewritten, because they aren't actually
+        /// asynchronous. An additional user-determined list may also be passed in.
+        /// </summary>
+        static readonly string[] AlwaysExcludedTypes = {
+            "System.IO.TextWriter",
+            "System.IO.StringWriter",
+            "System.IO.MemoryStream"
+        };
+
+        /// <summary>
         /// Contains the parsed contents of the AsyncRewriterHelpers.cs file (essentially
         /// <see cref="RewriteAsync"/> which needs to always be compiled in.
         /// </summary>
@@ -55,45 +65,72 @@ namespace AsyncRewriter
             }
         }
 
-        public string RewriteAndMerge(IEnumerable<string> paths, params string[] additionalAssemblyNames)
+        public string RewriteAndMerge(IEnumerable<string> paths, string[] additionalAssemblyNames=null, string[] excludedTypes = null)
         {
             var syntaxTrees = paths.Select(p => SyntaxFactory.ParseSyntaxTree(File.ReadAllText(p))).ToArray();
 
             var compilation = CSharpCompilation.Create(
                 "Temp",
                 syntaxTrees.Concat(new[] { _asyncHelpersSyntaxTree }),
-                additionalAssemblyNames
-                    .Select(n => MetadataReference.CreateFromAssembly(Assembly.Load(n)))
-                    .Concat(new[] { MetadataReference.CreateFromAssembly(typeof(object).Assembly) }),
+                (additionalAssemblyNames?.Select(n => MetadataReference.CreateFromAssembly(Assembly.Load(n))) ?? new MetadataReference[0])
+                    .Concat(new[] {
+                        MetadataReference.CreateFromAssembly(typeof(object).Assembly),
+                        MetadataReference.CreateFromAssembly(typeof(Stream).Assembly)
+                    }),
                 new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
             );
 
-            return RewriteAndMerge(syntaxTrees, compilation).ToString();
+            return RewriteAndMerge(syntaxTrees, compilation, excludedTypes).ToString();
         }
 
-        public SyntaxTree RewriteAndMerge(SyntaxTree[] syntaxTrees, CSharpCompilation compilation)
+        public SyntaxTree RewriteAndMerge(SyntaxTree[] syntaxTrees, CSharpCompilation compilation, string[] excludedTypes = null)
         {
-            var rewrittenTrees = Rewrite(syntaxTrees, compilation).ToArray();
+            var rewrittenTrees = Rewrite(syntaxTrees, compilation, excludedTypes).ToArray();
 
             return SyntaxFactory.SyntaxTree(
                 SyntaxFactory.CompilationUnit()
                     .WithUsings(SyntaxFactory.List(
                         rewrittenTrees
                             .SelectMany(t => t.GetCompilationUnitRoot().Usings)
-                            .Distinct())
-                    )
-                    .WithMembers(SyntaxFactory.List(rewrittenTrees.SelectMany(t => t.GetCompilationUnitRoot().Members)))
+                            .GroupBy(u => u.Name.ToString())
+                            .Select(g => g.First())
+                    ))
+                    .WithMembers(SyntaxFactory.List<MemberDeclarationSyntax>(
+                        rewrittenTrees
+                            .SelectMany(t => t.GetCompilationUnitRoot().Members)
+                            .Cast<NamespaceDeclarationSyntax>()
+                            .SelectMany(ns => ns.Members)
+                            .Cast<ClassDeclarationSyntax>()
+                            .GroupBy(cls => cls.FirstAncestorOrSelf<NamespaceDeclarationSyntax>().Name.ToString())
+                            .Select(g => SyntaxFactory.NamespaceDeclaration(SyntaxFactory.ParseName(g.Key))
+                                .WithMembers(SyntaxFactory.List<MemberDeclarationSyntax>(g))
+                            )
+                    ))
                     .WithEndOfFileToken(SyntaxFactory.Token(SyntaxKind.EndOfFileToken))
                     .NormalizeWhitespace()
             );
         }
 
-        public IEnumerable<SyntaxTree> Rewrite(SyntaxTree[] syntaxTrees, CSharpCompilation compilation)
+        public IEnumerable<SyntaxTree> Rewrite(SyntaxTree[] syntaxTrees, CSharpCompilation compilation, string[] excludedTypes=null)
         {
-            _excludedTypes = new HashSet<ITypeSymbol> {
-                compilation.GetTypeByMetadataName("System.IO.TextWriter"),
-                compilation.GetTypeByMetadataName("System.IO.MemoryStream")
-            };
+            _excludedTypes = new HashSet<ITypeSymbol>();
+
+            // Handle the user-provided exclude list
+            if (excludedTypes != null)
+            {
+                var excludedTypeSymbols = excludedTypes.Select(compilation.GetTypeByMetadataName).ToList();
+                var notFound = excludedTypeSymbols.IndexOf(null);
+                if (notFound != -1)
+                    throw new ArgumentException($"Type {excludedTypes[notFound]} not found in compilation", nameof(excludedTypes));
+                _excludedTypes.UnionWith(excludedTypeSymbols);
+            }
+
+            // And the builtin exclude list
+            _excludedTypes.UnionWith(
+                AlwaysExcludedTypes
+                    .Select(compilation.GetTypeByMetadataName)
+                    .Where(sym => sym != null)
+            );
 
             foreach (var syntaxTree in syntaxTrees)
             {
@@ -172,7 +209,7 @@ namespace AsyncRewriter
             // Transform return type adding Task<>
             var returnType = inMethodSyntax.ReturnType.ToString();
             outMethod = outMethod.WithReturnType(SyntaxFactory.ParseTypeName(
-                returnType == "void" ? "Task" : String.Format("Task<{0}>", returnType))
+                returnType == "void" ? "Task" : $"Task<{returnType}>")
             );
 
             // Remove the override and new attributes. Seems like the clean .Remove above doesn't work...
