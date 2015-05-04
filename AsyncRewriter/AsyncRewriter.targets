@@ -1,7 +1,7 @@
 
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 
-  <UsingTask TaskName="AsyncRewriter.RewriteAsync" AssemblyFile="C:\projects\AsyncRewriter\AsyncRewriter\bin\Debug\AsyncRewriter.dll" />
+  <UsingTask TaskName="AsyncRewriter.RewriteAsync" AssemblyFile="AsyncRewriter.dll" />
   
   <ItemGroup>
     <RewriteAsyncInputs Include="@(Compile)" Exclude="GeneratedAsync.cs" />
