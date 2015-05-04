@@ -104,6 +104,7 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="AsyncRewriterHelpers.cs" />
+    <Compile Include="GeneratedAsync.cs" />
     <Compile Include="RewriteAsync.cs" />
     <Compile Include="Rewriter.cs" />
     <Compile Include="Logging.cs" />

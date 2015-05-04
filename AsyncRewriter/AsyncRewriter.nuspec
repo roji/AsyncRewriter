@@ -18,5 +18,6 @@
     <file src="bin\Release\*.pdb" target="build" />
     <file src="AsyncRewriter.targets" target="build" />
     <file src="AsyncRewriterHelpers.cs" target="content" />
+    <file src="GeneratedAsync.cs" target="content" />
   </files>
 </package>
