@@ -1,17 +1,26 @@
 
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 
-  <UsingTask TaskName="AsyncRewriter.RewriteAsync" AssemblyFile="AsyncRewriter.dll" />
+  <UsingTask TaskName="AsyncRewriter.RewriteAsync" AssemblyFile="C:\projects\AsyncRewriter\AsyncRewriter\bin\Debug\AsyncRewriter.dll" />
+  
+  <ItemGroup>
+    <RewriteAsyncInputs Include="@(Compile)" Exclude="GeneratedAsync.cs" />
+  </ItemGroup>  
 
-  <Target Name="RewriteAsync">
-    <ItemGroup>
-      <AsyncList Include="%(Compile.DependentUpon)" Condition="'%(Compile.Generator)' == 'AsyncRewriter'" />
-    </ItemGroup>
-    <RewriteAsync InputFiles="@(AsyncList)" />
+  <Target Name="RewriteAsync" Inputs="@(RewriteAsyncInputs)" Outputs="GeneratedAsync.cs">
+    <RewriteAsync InputFiles="@(RewriteAsyncInputs)" OutputFile="GeneratedAsync.cs" />
   </Target>
 
+  <Target Name="CleanRewrittenAsync">
+    <Delete Files="GeneratedAsync.cs" />
+  </Target>
+  
   <PropertyGroup>
     <CompileDependsOn>RewriteAsync;$(CompileDependsOn)</CompileDependsOn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <CleanDependsOn>CleanRewrittenAsync;$(CleanDependsOn)</CleanDependsOn>
   </PropertyGroup>
 
 </Project>
