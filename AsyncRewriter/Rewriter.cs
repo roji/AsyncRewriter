@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics.Contracts;
 using System.IO;
 using System.Linq;
 using System.Net.Sockets;
@@ -65,13 +66,17 @@ namespace AsyncRewriter
             }
         }
 
-        public string RewriteAndMerge(IEnumerable<string> paths, string[] additionalAssemblyNames=null, string[] excludedTypes = null)
+        public string RewriteAndMerge(string[] paths, string[] additionalAssemblyNames=null, string[] excludedTypes = null)
         {
+            if (paths.All(p => Path.GetFileName(p) != "AsyncRewriterHelpers.cs"))
+                throw new ArgumentException("AsyncRewriterHelpers.cs must be included in paths", nameof(paths));
+            Contract.EndContractBlock();
+
             var syntaxTrees = paths.Select(p => SyntaxFactory.ParseSyntaxTree(File.ReadAllText(p))).ToArray();
 
             var compilation = CSharpCompilation.Create(
                 "Temp",
-                syntaxTrees.Concat(new[] { _asyncHelpersSyntaxTree }),
+                syntaxTrees,
                 (additionalAssemblyNames?.Select(n => MetadataReference.CreateFromAssembly(Assembly.Load(n))) ?? new MetadataReference[0])
                     .Concat(new[] {
                         MetadataReference.CreateFromAssembly(typeof(object).Assembly),

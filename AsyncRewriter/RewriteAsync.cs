@@ -30,7 +30,7 @@ namespace AsyncRewriter
 
         public override bool Execute()
         {
-            var asyncCode = _rewriter.RewriteAndMerge(InputFiles.Select(f => f.ItemSpec));
+            var asyncCode = _rewriter.RewriteAndMerge(InputFiles.Select(f => f.ItemSpec).ToArray());
             File.WriteAllText(OutputFile.ItemSpec, asyncCode);
             return true;
         }
