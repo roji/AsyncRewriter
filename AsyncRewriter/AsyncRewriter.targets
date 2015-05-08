@@ -8,6 +8,7 @@
   </ItemGroup>  
 
   <Target Name="RewriteAsync" Inputs="@(RewriteAsyncInputs)" Outputs="GeneratedAsync.cs">
+    <Message Text="Rewriting code to async..."/>
     <RewriteAsync InputFiles="@(RewriteAsyncInputs)" OutputFile="GeneratedAsync.cs" />
   </Target>
 
