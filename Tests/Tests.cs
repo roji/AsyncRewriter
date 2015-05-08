@@ -15,11 +15,13 @@ namespace Tests
 {
     class Tests
     {
+        string asyncHelpersPath;
+
         [Test, TestCaseSource(typeof(AsyncCodeTestCaseSource))]
         public void AllTests(string inPath, string expectedPath)
         {
             var rewriter = new Rewriter(new ConsoleLoggingAdapter(LogLevel.Debug));
-            var actual = rewriter.RewriteAndMerge(new[] { inPath });
+            var actual = rewriter.RewriteAndMerge(new[] { inPath, asyncHelpersPath });
 
             actual = SyntaxFactory.SyntaxTree(SyntaxFactory.ParseCompilationUnit(actual).NormalizeWhitespace()).ToString();
             var expected = SyntaxFactory.SyntaxTree(SyntaxFactory.ParseCompilationUnit(File.ReadAllText(expectedPath)).NormalizeWhitespace()).ToString();
@@ -33,6 +35,30 @@ namespace Tests
                 Console.WriteLine("********");
             }
             Assert.That(actual, Is.EqualTo(expected));
+        }
+
+        [TestFixtureSetUp]
+        public void Setup()
+        {
+            // Dump AsyncRewriterHelper.cs from the AsyncRewriter assembly to some temp file
+            var tempDirectory = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+            Directory.CreateDirectory(tempDirectory);
+            asyncHelpersPath = Path.Combine(tempDirectory, "AsyncRewriterHelpers.cs");
+
+            using (var reader = new StreamReader(typeof (Rewriter).Assembly.GetManifestResourceStream(
+                string.Format("{0}.{1}", typeof (Rewriter).Namespace, "AsyncRewriterHelpers.cs")
+                )))
+            {
+                File.WriteAllText(asyncHelpersPath, reader.ReadToEnd());
+            }
+        }
+
+        [TestFixtureTearDown]
+        public void Teardown()
+        {
+            var dir = Path.GetDirectoryName(asyncHelpersPath);
+            if (Directory.Exists(dir))
+                Directory.Delete(dir, true);
         }
     }
 
