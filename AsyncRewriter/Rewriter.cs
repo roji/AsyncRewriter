@@ -77,10 +77,10 @@ namespace AsyncRewriter
             var compilation = CSharpCompilation.Create(
                 "Temp",
                 syntaxTrees,
-                (additionalAssemblyNames?.Select(n => MetadataReference.CreateFromAssembly(Assembly.Load(n))) ?? new MetadataReference[0])
+                (additionalAssemblyNames?.Select(n => MetadataReference.CreateFromFile(Assembly.Load(n).Location)) ?? new PortableExecutableReference[0])
                     .Concat(new[] {
-                        MetadataReference.CreateFromAssembly(typeof(object).Assembly),
-                        MetadataReference.CreateFromAssembly(typeof(Stream).Assembly)
+                        MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                        MetadataReference.CreateFromFile(typeof(Stream).Assembly.Location)
                     }),
                 new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
             );
