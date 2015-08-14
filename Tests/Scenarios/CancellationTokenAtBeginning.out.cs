@@ -8,9 +8,9 @@ using System.Threading.Tasks;
 
 namespace Tests.Scenarios
 {
-    class Simple
+    class CancellationTokenAtBeginning
     {
-        public async Task<int> FooAsync(CancellationToken cancellationToken)
+        public async Task<int> FooAsync(CancellationToken cancellationToken, int x)
         {
             return 8;
         }

@@ -12,7 +12,7 @@ namespace Tests.Scenarios
 {
     class Simple
     {
-        public async Task<int> FooAsync()
+        public async Task<int> FooAsync(CancellationToken cancellationToken)
         {
             var s = new StringWriter();
             s.Write("hello");

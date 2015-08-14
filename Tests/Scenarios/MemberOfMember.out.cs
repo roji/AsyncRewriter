@@ -11,16 +11,16 @@ namespace Tests.Scenarios
 {
     class Simple
     {
-        public async Task<int> FooAsync()
+        public async Task<int> FooAsync(CancellationToken cancellationToken)
         {
             var c = new Container();
-            return await c.Inner.BarAsync();
+            return await c.Inner.BarAsync(cancellationToken);
         }
     }
 
     class Inner
     {
-        public async Task<int> BarAsync()
+        public async Task<int> BarAsync(CancellationToken cancellationToken)
         {
             return 8;
         }

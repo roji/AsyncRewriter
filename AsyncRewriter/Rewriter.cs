@@ -51,6 +51,8 @@ namespace AsyncRewriter
         /// </summary>
         readonly SyntaxTree _asyncHelpersSyntaxTree;
 
+        ITypeSymbol _cancellationTokenSymbol;
+
         readonly ILogger _log;
 
         public Rewriter(ILogger log=null)
@@ -112,6 +114,8 @@ namespace AsyncRewriter
 
         public IEnumerable<SyntaxTree> Rewrite(SyntaxTree[] syntaxTrees, CSharpCompilation compilation, string[] excludedTypes=null)
         {
+            _cancellationTokenSymbol = compilation.GetTypeByMetadataName("System.Threading.CancellationToken");
+
             _excludedTypes = new HashSet<ITypeSymbol>();
 
             // Handle the user-provided exclude list
@@ -192,7 +196,7 @@ namespace AsyncRewriter
             _log.Debug("  Rewriting method {0} to {1}", inMethodSymbol.Name, outMethodName);
 
             // Visit all method invocations inside the method, rewrite them to async if needed
-            var rewriter = new MethodInvocationRewriter(_log, semanticModel, _excludedTypes);
+            var rewriter = new MethodInvocationRewriter(_log, semanticModel, _excludedTypes, _cancellationTokenSymbol);
             var outMethod = (MethodDeclarationSyntax)rewriter.Visit(inMethodSyntax);
 
             // Method signature
@@ -203,7 +207,15 @@ namespace AsyncRewriter
                   .Add(SyntaxFactory.Token(SyntaxKind.AsyncKeyword))
                   //.Remove(SyntaxFactory.Token(SyntaxKind.OverrideKeyword))
                   //.Remove(SyntaxFactory.Token(SyntaxKind.NewKeyword))
-                );
+                )
+                // Transform parameters adding cancellation token
+                .WithParameterList(SyntaxFactory.ParameterList(inMethodSyntax.ParameterList.Parameters.Insert(0, SyntaxFactory.Parameter(
+                        SyntaxFactory.List<AttributeListSyntax>(),
+                        SyntaxFactory.TokenList(),
+                        SyntaxFactory.ParseTypeName("CancellationToken"),
+                        SyntaxFactory.Identifier("cancellationToken"),
+                        null
+                ))));
 
             // Transform return type adding Task<>
             var returnType = inMethodSyntax.ReturnType.ToString();
@@ -229,7 +241,7 @@ namespace AsyncRewriter
                 outMethod = outMethod.AddModifiers(SyntaxFactory.Token(SyntaxKind.OverrideKeyword));
             }
 
-            return outMethod;
+           return outMethod;
         }
     }
 
@@ -237,76 +249,149 @@ namespace AsyncRewriter
     {
         readonly SemanticModel _model;
         readonly HashSet<ITypeSymbol> _excludeTypes;
+        readonly ITypeSymbol _cancellationTokenSymbol;
+        readonly ParameterComparer _paramComparer;
         readonly ILogger _log;
 
-        public MethodInvocationRewriter(ILogger log, SemanticModel model, HashSet<ITypeSymbol> excludeTypes)
+        public MethodInvocationRewriter(ILogger log, SemanticModel model, HashSet<ITypeSymbol> excludeTypes,
+                                        ITypeSymbol cancellationTokenSymbol)
         {
             _log = log;
             _model = model;
+            _cancellationTokenSymbol = cancellationTokenSymbol;
             _excludeTypes = excludeTypes;
+            _paramComparer = new ParameterComparer();
         }
 
         public override SyntaxNode VisitInvocationExpression(InvocationExpressionSyntax node)
         {
-            var symbol = (IMethodSymbol)_model.GetSymbolInfo(node).Symbol;
-            if (symbol == null)
+            var syncSymbol = (IMethodSymbol)_model.GetSymbolInfo(node).Symbol;
+            if (syncSymbol == null)
                 return node;
+
+            int cancellationTokenPos;
 
             // Skip invocations of methods that don't have [RewriteAsync], or an Async
             // counterpart to them
-            if (!symbol.GetAttributes().Any(a => a.AttributeClass.Name == "RewriteAsyncAttribute") && (
-                  _excludeTypes.Contains(symbol.ContainingType) ||
-                  !symbol.ContainingType.GetMembers(symbol.Name + "Async").Any()
-               ))
+            if (syncSymbol.GetAttributes().Any(a => a.AttributeClass.Name == "RewriteAsyncAttribute"))
             {
-                return node;
+                // This is one of our methods, flagged for async rewriting.
+                // All methods rewritten by us accept a cancellation token (for now), as the first argument.
+                cancellationTokenPos = 0;
+            }
+            else
+            {
+                if (_excludeTypes.Contains(syncSymbol.ContainingType))
+                    return node;
+
+                var asyncCandidates = syncSymbol.ContainingType.GetMembers(syncSymbol.Name + "Async");
+
+                // First attempt to find an async method accepting a cancellation token.
+                // Assume it appears in last position (for now).
+                var asyncWithCancellationToken = asyncCandidates
+                    .Cast<IMethodSymbol>()
+                    .FirstOrDefault(ms =>
+                        ms.Parameters.Length == syncSymbol.Parameters.Length + 1 &&
+                        ms.Parameters.Take(syncSymbol.Parameters.Length).SequenceEqual(syncSymbol.Parameters, _paramComparer) &&
+                        ms.Parameters.Last().Type == _cancellationTokenSymbol
+                    );
+                if (asyncWithCancellationToken != null)
+                {
+                    cancellationTokenPos = asyncWithCancellationToken.Parameters.Length - 1;
+                }
+                else
+                {
+                    // No async overload that accepts a cancellation token.
+                    // Make sure there's an async target with a matching parameter list, otherwise don't rewrite
+                    if (asyncCandidates
+                        .Cast<IMethodSymbol>()
+                        .Any(ms =>
+                            ms.Parameters.Length == syncSymbol.Parameters.Length &&
+                            ms.Parameters.SequenceEqual(syncSymbol.Parameters)
+                        )
+                    )
+                    {
+                        cancellationTokenPos = -1;
+                    }
+                    else
+                    {
+                        return node;
+                    }
+
+                }
             }
 
-            _log.Debug("    Found rewritable invocation: " + symbol);
+            _log.Debug("    Found rewritable invocation: " + syncSymbol);
 
-            var rewritten = RewriteExpression(node);
+            var rewritten = RewriteExpression(node, cancellationTokenPos);
             if (!(node.Parent is StatementSyntax))
                 rewritten = SyntaxFactory.ParenthesizedExpression(rewritten);
             return rewritten;
         }
 
-        ExpressionSyntax RewriteExpression(InvocationExpressionSyntax node)
+        ExpressionSyntax RewriteExpression(InvocationExpressionSyntax node, int cancellationTokenPos)
         {
-            var identifierName = node.Expression as IdentifierNameSyntax;
-            if (identifierName != null)
-            {
-                return SyntaxFactory.AwaitExpression(
-                    node.WithExpression(identifierName.WithIdentifier(
-                        SyntaxFactory.Identifier(identifierName.Identifier.Text + "Async")
-                    ))
-                );
-            }
+            InvocationExpressionSyntax rewrittenInvocation = null;
 
-            var memberAccessExp = node.Expression as MemberAccessExpressionSyntax;
-            if (memberAccessExp != null)
+            if (node.Expression is IdentifierNameSyntax)
             {
+                var identifierName = (IdentifierNameSyntax)node.Expression;
+                rewrittenInvocation = node.WithExpression(identifierName.WithIdentifier(
+                    SyntaxFactory.Identifier(identifierName.Identifier.Text + "Async")
+                ));
+            }
+            else if (node.Expression is MemberAccessExpressionSyntax)
+            {
+                var memberAccessExp = (MemberAccessExpressionSyntax)node.Expression;
                 var nestedInvocation = memberAccessExp.Expression as InvocationExpressionSyntax;
                 if (nestedInvocation != null)
                     memberAccessExp = memberAccessExp.WithExpression((ExpressionSyntax)VisitInvocationExpression(nestedInvocation));
 
-                return SyntaxFactory.AwaitExpression(
-                    node.WithExpression(memberAccessExp.WithName(
-                        memberAccessExp.Name.WithIdentifier(SyntaxFactory.Identifier(memberAccessExp.Name.Identifier.Text + "Async"))
-                    ))
-                );
-            }
-
-            var genericNameExp = node.Expression as GenericNameSyntax;
-            if (genericNameExp != null)
-            {
-                return SyntaxFactory.AwaitExpression(
-                    node.WithExpression(
-                        genericNameExp.WithIdentifier(SyntaxFactory.Identifier(genericNameExp.Identifier.Text + "Async"))
+                rewrittenInvocation = node.WithExpression(memberAccessExp.WithName(
+                    memberAccessExp.Name.WithIdentifier(
+                        SyntaxFactory.Identifier(memberAccessExp.Name.Identifier.Text + "Async")
                     )
+                ));
+            }
+            else if (node.Expression is GenericNameSyntax)
+            {
+                var genericNameExp = (GenericNameSyntax)node.Expression;
+                rewrittenInvocation = node.WithExpression(
+                    genericNameExp.WithIdentifier(SyntaxFactory.Identifier(genericNameExp.Identifier.Text + "Async"))
                 );
             }
+            else throw new NotSupportedException($"It seems there's an expression type ({node.Expression.GetType().Name}) not yet supported by the AsyncRewriter");
 
-            throw new NotSupportedException($"It seems there's an expression type ({node.Expression.GetType().Name}) not yet supported by the AsyncRewriter");
+            if (cancellationTokenPos != -1)
+            {
+                var cancellationTokenArg = SyntaxFactory.Argument(SyntaxFactory.IdentifierName("cancellationToken"));
+
+                if (cancellationTokenPos == rewrittenInvocation.ArgumentList.Arguments.Count)
+                    rewrittenInvocation = rewrittenInvocation.WithArgumentList(
+                        rewrittenInvocation.ArgumentList.AddArguments(cancellationTokenArg)
+                    );
+                else
+                    rewrittenInvocation = rewrittenInvocation.WithArgumentList(SyntaxFactory.ArgumentList(
+                        rewrittenInvocation.ArgumentList.Arguments.Insert(cancellationTokenPos, cancellationTokenArg)
+                    ));
+            }
+
+            return SyntaxFactory.AwaitExpression(rewrittenInvocation);
+        }
+
+        class ParameterComparer : IEqualityComparer<IParameterSymbol>
+        {
+            public bool Equals(IParameterSymbol x, IParameterSymbol y)
+            {
+                return
+                    x.Name.Equals(y.Name) &&
+                    x.Type.Equals(y.Type);
+            }
+
+            public int GetHashCode(IParameterSymbol p)
+            {
+                return p.GetHashCode();
+            }
         }
     }
 }

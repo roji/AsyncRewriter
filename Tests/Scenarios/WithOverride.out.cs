@@ -10,7 +10,7 @@ namespace Tests.Scenarios
 {
     class Simple
     {
-        public async override Task<int> FooAsync()
+        public async override Task<int> FooAsync(CancellationToken cancellationToken)
         {
             return 8;
         }

@@ -13,7 +13,7 @@ namespace Tests.Scenarios
 {
     class IfWithUsing
     {
-        public async Task<int> FooAsync()
+        public async Task<int> FooAsync(CancellationToken cancellationToken)
         {
             return 8;
         }

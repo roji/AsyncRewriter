@@ -7,12 +7,12 @@ namespace Tests.Scenarios
 {
     class Simple
     {
-        public async Task<int> FooAsync()
+        public async Task<int> FooAsync(CancellationToken cancellationToken)
         {
-            return await BarAsync();
+            return await BarAsync(cancellationToken);
         }
 
-        public async Task<int> BarAsync()
+        public async Task<int> BarAsync(CancellationToken cancellationToken)
         {
             return 8;
         }
