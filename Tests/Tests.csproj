@@ -59,6 +59,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Playground.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Content Include="Scenarios\Simple.out.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
