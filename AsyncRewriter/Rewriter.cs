@@ -15,9 +15,6 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace AsyncRewriter
 {
-    // Map namespaces to classes to methods, for methods that are marked
-    using NamespaceToClasses = Dictionary<NamespaceDeclarationSyntax, Dictionary<ClassDeclarationSyntax, HashSet<MethodInfo>>>;
-
     /// <summary>
     /// </summary>
     /// <remarks>
@@ -95,10 +92,7 @@ namespace AsyncRewriter
             return SyntaxFactory.SyntaxTree(
                 SyntaxFactory.CompilationUnit()
                     .WithUsings(SyntaxFactory.List(
-                        rewrittenTrees
-                            .SelectMany(t => t.GetCompilationUnitRoot().Usings)
-                            .GroupBy(u => u.Name.ToString())
-                            .Select(g => g.First())
+                        rewrittenTrees.SelectMany(t => t.GetCompilationUnitRoot().Usings)
                     ))
                     .WithMembers(SyntaxFactory.List<MemberDeclarationSyntax>(
                         rewrittenTrees
