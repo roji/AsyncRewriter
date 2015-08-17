@@ -2,7 +2,7 @@
 <package >
   <metadata>
     <id>AsyncRewriter</id>
-    <version>0.6.5</version>
+    <version>0.6.6</version>
     <title>AsyncRewriter</title>
     <authors>Shay Rojansky</authors>
     <owners>Shay Rojansky</owners>
