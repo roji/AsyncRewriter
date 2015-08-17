@@ -166,9 +166,12 @@ namespace AsyncRewriter
                     .Select(nsGrp =>
                         SyntaxFactory.NamespaceDeclaration(nsGrp.Key.Name)
                         .WithMembers(SyntaxFactory.List<MemberDeclarationSyntax>(nsGrp.Select(clsGrp =>
-                            clsGrp.Key.WithMembers(SyntaxFactory.List<MemberDeclarationSyntax>(
-                                clsGrp.Select(m => RewriteMethod(m, semanticModel))
-                            ))
+                            SyntaxFactory.ClassDeclaration(clsGrp.Key.Identifier)
+                                .WithModifiers(clsGrp.Key.Modifiers)
+                                .WithTypeParameterList(clsGrp.Key.TypeParameterList)
+                                .WithMembers(SyntaxFactory.List<MemberDeclarationSyntax>(
+                                    clsGrp.Select(m => RewriteMethod(m, semanticModel))
+                                ))
                         )))
                     )
                 );

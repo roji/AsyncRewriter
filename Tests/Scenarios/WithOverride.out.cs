@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Tests.Scenarios
 {
-    class Simple : Parent
+    class Simple
     {
         public async override Task<int> FooAsync(CancellationToken cancellationToken)
         {
