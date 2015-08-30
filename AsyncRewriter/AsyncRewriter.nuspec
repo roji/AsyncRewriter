@@ -7,7 +7,7 @@
     <authors>Shay Rojansky</authors>
     <owners>Shay Rojansky</owners>
     <licenseUrl>http://opensource.org/licenses/MIT</licenseUrl>
-    <projectUrl>http://https://github.com/roji/AsyncRewriter</projectUrl>
+    <projectUrl>http://github.com/roji/AsyncRewriter</projectUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>Uses Roslyn to rewrite synchronous C# methods into async counterparts</description>
     <copyright>Copyright 2015</copyright>
