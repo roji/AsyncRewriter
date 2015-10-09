@@ -1,14 +1,11 @@
-﻿using System;
+﻿#if !DNXCORE50
+using System;
 using System.Collections.Generic;
-using System.Data;
 using System.Diagnostics.Contracts;
 using System.IO;
 using System.Linq;
-using System.Net.Sockets;
 using System.Reflection;
-using System.Runtime.InteropServices.WindowsRuntime;
-using System.Text;
-using System.Threading.Tasks;
+using AsyncRewriter.Logging;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -59,7 +56,7 @@ namespace AsyncRewriter
         {
             _log = log ?? new ConsoleLoggingAdapter();
             // ReSharper disable once AssignNullToNotNullAttribute
-            using (var reader = new StreamReader(typeof(Rewriter).Assembly.GetManifestResourceStream("AsyncRewriter.AsyncRewriterHelpers.cs")))
+            using (var reader = new StreamReader(typeof(Rewriter).GetTypeInfo().Assembly.GetManifestResourceStream("AsyncRewriter.AsyncRewriterHelpers.cs")))
             {
                 _asyncHelpersSyntaxTree = SyntaxFactory.ParseSyntaxTree(reader.ReadToEnd());
             }
@@ -78,8 +75,8 @@ namespace AsyncRewriter
                 syntaxTrees,
                 (additionalAssemblyNames?.Select(n => MetadataReference.CreateFromFile(Assembly.Load(n).Location)) ?? new PortableExecutableReference[0])
                     .Concat(new[] {
-                        MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
-                        MetadataReference.CreateFromFile(typeof(Stream).Assembly.Location)
+                        MetadataReference.CreateFromFile(typeof(object).GetTypeInfo().Assembly.Location),
+                        MetadataReference.CreateFromFile(typeof(Stream).GetTypeInfo().Assembly.Location)
                     }),
                 new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
             );
@@ -396,3 +393,4 @@ namespace AsyncRewriter
         }
     }
 }
+#endif
