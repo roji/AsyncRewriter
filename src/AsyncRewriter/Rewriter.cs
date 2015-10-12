@@ -1,4 +1,4 @@
-﻿#if !DNXCORE50
+﻿#if NET45 || DNX451
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
