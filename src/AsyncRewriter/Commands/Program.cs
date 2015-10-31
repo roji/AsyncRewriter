@@ -6,7 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Microsoft.Dnx.Runtime;
+using Microsoft.Extensions.PlatformAbstractions;
 using Microsoft.Framework.FileSystemGlobbing;
 
 namespace AsyncRewriter.Commands
@@ -16,12 +16,11 @@ namespace AsyncRewriter.Commands
         readonly string _projectDir;
         const string OutputFileName = "GeneratedAsync.cs";
 
-        public Program(IServiceProvider dnxServices)
+        public Program()
         {
             // TODO: Is there some way to extract the actual file list from the DNX runtime?
             // This way we'd take excludes/includes, external directories, etc. into account
-            var appEnv = (IApplicationEnvironment)dnxServices.GetService(typeof (IApplicationEnvironment));
-            _projectDir = appEnv.ApplicationBasePath;
+            _projectDir = PlatformServices.Default.Application.ApplicationBasePath;
         }
 
         public void Main(string[] args)
