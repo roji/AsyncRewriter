@@ -1,6 +1,7 @@
 ﻿#if !DNXCORE50
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics.Contracts;
 using System.IO;
 using System.Linq;
@@ -269,7 +270,7 @@ namespace AsyncRewriter
             if (syncSymbol == null)
                 return node;
 
-            int cancellationTokenPos;
+            var cancellationTokenPos = -1;
 
             // Skip invocations of methods that don't have [RewriteAsync], or an Async
             // counterpart to them
@@ -284,37 +285,33 @@ namespace AsyncRewriter
                 if (_excludeTypes.Contains(syncSymbol.ContainingType))
                     return node;
 
-                var asyncCandidates = syncSymbol.ContainingType.GetMembers(syncSymbol.Name + "Async");
+                var asyncCandidates = syncSymbol.ContainingType.GetMembers(syncSymbol.Name + "Async").Cast<IMethodSymbol>().ToList();
 
-                // First attempt to find an async method accepting a cancellation token.
-                // Assume it appears in last position (for now).
-                var asyncWithCancellationToken = asyncCandidates
-                    .Cast<IMethodSymbol>()
-                    .FirstOrDefault(ms =>
-                        ms.Parameters.Length == syncSymbol.Parameters.Length + 1 &&
-                        ms.Parameters.Take(syncSymbol.Parameters.Length).SequenceEqual(syncSymbol.Parameters, _paramComparer) &&
-                        ms.Parameters.Last().Type == _cancellationTokenSymbol
-                    );
-                if (asyncWithCancellationToken != null)
+                // First attempt to find an async counterpart method accepting a cancellation token.
+                foreach (var candidate in asyncCandidates.Where(c => c.Parameters.Length == syncSymbol.Parameters.Length + 1))
                 {
-                    cancellationTokenPos = asyncWithCancellationToken.Parameters.Length - 1;
+                    var ctPos = candidate.Parameters.TakeWhile(p => p.Type != _cancellationTokenSymbol).Count();
+                    if (ctPos == candidate.Parameters.Length)  // No cancellation token
+                        continue;
+                    if (!candidate.Parameters.RemoveAt(ctPos).SequenceEqual(syncSymbol.Parameters, _paramComparer))
+                        continue;
+                    cancellationTokenPos = ctPos;
                 }
-                else
+
+                if (cancellationTokenPos == -1)
                 {
-                    // No async overload that accepts a cancellation token.
-                    // Make sure there's an async target with a matching parameter list, otherwise don't rewrite
-                    if (asyncCandidates
-                        .Cast<IMethodSymbol>()
-                        .Any(ms =>
+                    // Couldn't find an async overload that accepts a cancellation token.
+                    // Next attempt to find an async method with a matching parameter list with no cancellation token
+                    if (asyncCandidates.Any(ms =>
                             ms.Parameters.Length == syncSymbol.Parameters.Length &&
                             ms.Parameters.SequenceEqual(syncSymbol.Parameters)
-                        )
-                    )
+                    ))
                     {
                         cancellationTokenPos = -1;
                     }
                     else
                     {
+                        // Couldn't find anything, don't rewrite the invocation
                         return node;
                     }
                 }
