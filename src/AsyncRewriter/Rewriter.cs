@@ -206,13 +206,15 @@ namespace AsyncRewriter
                   //.Remove(SyntaxFactory.Token(SyntaxKind.OverrideKeyword))
                   //.Remove(SyntaxFactory.Token(SyntaxKind.NewKeyword))
                 )
-                // Transform parameters adding cancellation token
-                .WithParameterList(SyntaxFactory.ParameterList(inMethodSyntax.ParameterList.Parameters.Insert(0, SyntaxFactory.Parameter(
-                        SyntaxFactory.List<AttributeListSyntax>(),
-                        SyntaxFactory.TokenList(),
-                        SyntaxFactory.ParseTypeName("CancellationToken"),
-                        SyntaxFactory.Identifier("cancellationToken"),
-                        null
+                // Insert the cancellation token into the parameter list at the right place
+                .WithParameterList(SyntaxFactory.ParameterList(inMethodSyntax.ParameterList.Parameters.Insert(
+                    inMethodSyntax.ParameterList.Parameters.TakeWhile(p => p.Default == null && !p.Modifiers.Any(m => m.IsKind(SyntaxKind.ParamsKeyword))).Count(),
+                    SyntaxFactory.Parameter(
+                            SyntaxFactory.List<AttributeListSyntax>(),
+                            SyntaxFactory.TokenList(),
+                            SyntaxFactory.ParseTypeName("CancellationToken"),
+                            SyntaxFactory.Identifier("cancellationToken"),
+                            null
                 ))));
 
             // Transform return type adding Task<>
@@ -274,8 +276,8 @@ namespace AsyncRewriter
             if (syncSymbol.GetAttributes().Any(a => a.AttributeClass.Name == "RewriteAsyncAttribute"))
             {
                 // This is one of our methods, flagged for async rewriting.
-                // All methods rewritten by us accept a cancellation token (for now), as the first argument.
-                cancellationTokenPos = 0;
+                // Find the proper position for the cancellation token
+                cancellationTokenPos = syncSymbol.Parameters.TakeWhile(p => !p.IsOptional && !p.IsParams).Count();
             }
             else
             {
@@ -315,7 +317,6 @@ namespace AsyncRewriter
                     {
                         return node;
                     }
-
                 }
             }
 
