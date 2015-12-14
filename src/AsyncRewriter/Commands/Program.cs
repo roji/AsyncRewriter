@@ -25,9 +25,6 @@ namespace AsyncRewriter.Commands
 
         public void Main(string[] args)
         {
-#if DNXCORE50
-            throw new NotSupportedException("Async rewriter not yet supported on CoreCLR");
-#else
             var matcher = new Matcher();
             matcher.AddInclude(@"**\*.cs");
             matcher.AddExclude(OutputFileName);
@@ -53,7 +50,6 @@ namespace AsyncRewriter.Commands
             {
                 Console.WriteLine("Skipping async rewriting, generated code up to date");
             }
-#endif
         }
     }
 }

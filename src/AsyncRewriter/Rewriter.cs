@@ -1,7 +1,5 @@
-﻿#if !DNXCORE50
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Diagnostics.Contracts;
 using System.IO;
 using System.Linq;
@@ -71,16 +69,15 @@ namespace AsyncRewriter
 
             var syntaxTrees = paths.Select(p => SyntaxFactory.ParseSyntaxTree(File.ReadAllText(p))).ToArray();
 
-            var compilation = CSharpCompilation.Create(
-                "Temp",
-                syntaxTrees,
-                (additionalAssemblyNames?.Select(n => MetadataReference.CreateFromFile(Assembly.Load(n).Location)) ?? new PortableExecutableReference[0])
-                    .Concat(new[] {
+            var compilation = CSharpCompilation.Create("Temp", syntaxTrees, null, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+                .AddReferences(
                         MetadataReference.CreateFromFile(typeof(object).GetTypeInfo().Assembly.Location),
                         MetadataReference.CreateFromFile(typeof(Stream).GetTypeInfo().Assembly.Location)
-                    }),
-                new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
-            );
+                );
+            if (additionalAssemblyNames != null)
+            {
+                compilation = compilation.AddReferences(additionalAssemblyNames.Select(n => MetadataReference.CreateFromFile(n)));
+            }
 
             return RewriteAndMerge(syntaxTrees, compilation, excludedTypes).ToString();
         }
@@ -391,4 +388,3 @@ namespace AsyncRewriter
         }
     }
 }
-#endif
