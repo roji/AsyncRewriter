@@ -33,7 +33,7 @@
       },
       "dependencies": {
         "Microsoft.Extensions.PlatformAbstractions": "1.0.0-*",
-        "Microsoft.Framework.FileSystemGlobbing": "1.0.0-*"
+        "Microsoft.Extensions.FileSystemGlobbing": "1.0.0-*"
       }
     },
     "dnxcore50": {
@@ -46,7 +46,7 @@
         "System.Reflection": "4.1.0-*",
         "System.Runtime": "4.0.21-*",
         "Microsoft.Extensions.PlatformAbstractions": "1.0.0-*",
-        "Microsoft.Framework.FileSystemGlobbing": "1.0.0-*"
+        "Microsoft.Extensions.FileSystemGlobbing": "1.0.0-*"
       }
     }
   }
