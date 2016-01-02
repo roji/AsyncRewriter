@@ -1,11 +1,11 @@
 {
-  "version": "0.7.8",
+  "version": "0.7.9",
   "owners": [ "Shay Rojansky" ],
   "authors": [ "Shay Rojansky" ],
   "description": "Uses Roslyn to rewrite synchronous C# methods into async counterparts",
   "resource": "AsyncRewriterHelpers.cs",
   "dependencies": {
-    "Microsoft.CodeAnalysis.CSharp": "1.1.0-rc1",
+    "Microsoft.CodeAnalysis.CSharp": "1.1.0-rc1"
   },
   "frameworks": {
     "net45": {
@@ -36,7 +36,7 @@
         "Microsoft.Extensions.FileSystemGlobbing": "1.0.0-*"
       }
     },
-    "dnxcore50": {
+    "dotnet54": {
       "dependencies": {
         "System.Console": "4.0.0-*",
         "System.Data.Common": "4.0.1-*",

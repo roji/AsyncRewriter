@@ -1,4 +1,4 @@
-﻿#if DNX451 || DNXCORE50
+﻿#if DNX451 || DOTNET5_4
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -7,7 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.PlatformAbstractions;
-using Microsoft.Framework.FileSystemGlobbing;
+using Microsoft.Extensions.FileSystemGlobbing;
 
 namespace AsyncRewriter.Commands
 {
