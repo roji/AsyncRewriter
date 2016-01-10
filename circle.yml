@@ -5,3 +5,7 @@ machine:
 dependencies:
   override:
     - docker build -f Dockerfile -t local/tests .
+
+test:
+  override:
+    - echo no tests
