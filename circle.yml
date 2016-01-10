@@ -1,0 +1,7 @@
+machine:
+  services:
+    - docker
+
+dependencies:
+  override:
+    - docker build -f Dockerfile -t local/tests .
