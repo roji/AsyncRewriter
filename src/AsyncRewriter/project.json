@@ -5,7 +5,7 @@
   "description": "Uses Roslyn to rewrite synchronous C# methods into async counterparts",
   "resource": "AsyncRewriterHelpers.cs",
   "dependencies": {
-    "Microsoft.CodeAnalysis.CSharp": "1.1.0-rc1"
+    "Microsoft.CodeAnalysis.CSharp": "1.2.1"
   },
   "frameworks": {
     "net45": {
