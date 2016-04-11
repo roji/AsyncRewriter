@@ -1,5 +1,5 @@
 {
-  "version": "0.7.9",
+  "version": "0.7.10",
   "owners": [ "Shay Rojansky" ],
   "authors": [ "Shay Rojansky" ],
   "description": "Uses Roslyn to rewrite synchronous C# methods into async counterparts",
