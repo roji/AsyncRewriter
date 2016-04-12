@@ -35,19 +35,6 @@
         "Microsoft.Extensions.PlatformAbstractions": "1.0.0-*",
         "Microsoft.Extensions.FileSystemGlobbing": "1.0.0-*"
       }
-    },
-    "dotnet54": {
-      "dependencies": {
-        "System.Console": "4.0.0-*",
-        "System.Data.Common": "4.0.1-*",
-        "System.Diagnostics.Contracts": "4.0.1-*",
-        "System.IO.FileSystem": "4.0.1-*",
-        "System.Linq": "4.0.1-*",
-        "System.Reflection": "4.1.0-*",
-        "System.Runtime": "4.0.21-*",
-        "Microsoft.Extensions.PlatformAbstractions": "1.0.0-*",
-        "Microsoft.Extensions.FileSystemGlobbing": "1.0.0-*"
-      }
     }
   }
 }
