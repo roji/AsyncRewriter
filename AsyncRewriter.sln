@@ -1,13 +1,15 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
-VisualStudioVersion = 14.0.23107.0
+VisualStudioVersion = 14.0.25123.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{8A657AC5-150F-4F55-8D9E-4F1A56D62D60}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{802E669C-6885-4E60-9CFB-8CFB47EAF16A}"
 EndProject
 Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "AsyncRewriter", "src\AsyncRewriter\AsyncRewriter.xproj", "{92FF6597-1851-4DBA-B9E6-6F0743D033CE}"
+EndProject
+Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "dotnet-rewrite-async", "src\dotnet-rewrite-async\dotnet-rewrite-async.xproj", "{5B3EC5B3-D3E0-4346-9BF8-01B30B6FC2F4}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -19,11 +21,16 @@ Global
 		{92FF6597-1851-4DBA-B9E6-6F0743D033CE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{92FF6597-1851-4DBA-B9E6-6F0743D033CE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{92FF6597-1851-4DBA-B9E6-6F0743D033CE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5B3EC5B3-D3E0-4346-9BF8-01B30B6FC2F4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5B3EC5B3-D3E0-4346-9BF8-01B30B6FC2F4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5B3EC5B3-D3E0-4346-9BF8-01B30B6FC2F4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5B3EC5B3-D3E0-4346-9BF8-01B30B6FC2F4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{92FF6597-1851-4DBA-B9E6-6F0743D033CE} = {8A657AC5-150F-4F55-8D9E-4F1A56D62D60}
+		{5B3EC5B3-D3E0-4346-9BF8-01B30B6FC2F4} = {8A657AC5-150F-4F55-8D9E-4F1A56D62D60}
 	EndGlobalSection
 EndGlobal
