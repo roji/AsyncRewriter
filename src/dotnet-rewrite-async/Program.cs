@@ -16,36 +16,17 @@ namespace AsyncRewriter.Commands
 
         public static int Main(string[] args)
         {
+            var workDir = args.Length > 0 ? args[0] : ".";
+            var outputFileNameWithPath = workDir == "." ? OutputFileName : Path.Combine(workDir, OutputFileName);
+
             var matcher = new Matcher();
             matcher.AddInclude(@"**\*.cs");
             matcher.AddExclude(OutputFileName);
 
-            var inputFiles = matcher.GetResultsInFullPath(".").ToArray();
+            var inputFiles = matcher.GetResultsInFullPath(workDir).ToArray();
             Console.WriteLine("Rewriting async methods");
             var asyncCode = new Rewriter().RewriteAndMerge(inputFiles);
-            File.WriteAllText(OutputFileName, asyncCode);
-                /*
-            var inputFiles = new List<string>();
-            var latestChange = DateTime.MinValue;
-            foreach (var f in matcher.GetResultsInFullPath("."))
-            {
-                inputFiles.Add(f);
-                var change = File.GetLastWriteTimeUtc(f);
-                if (change > latestChange)
-                    latestChange = change;
-            }
-
-            if (!File.Exists(OutputFileName) || latestChange > File.GetLastWriteTimeUtc(OutputFileName))
-            {
-                Console.WriteLine("Rewriting async methods");
-                var asyncCode = new Rewriter().RewriteAndMerge(inputFiles.ToArray());
-                File.WriteAllText(OutputFileName, asyncCode);
-            }
-            else
-            {
-                Console.WriteLine("Skipping async rewriting, generated code up to date");
-            }
-            */
+            File.WriteAllText(outputFileNameWithPath, asyncCode);
             return 0;
         }
     }

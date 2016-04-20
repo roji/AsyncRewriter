@@ -263,11 +263,23 @@ namespace AsyncRewriter
 
         public override SyntaxNode VisitInvocationExpression(InvocationExpressionSyntax node)
         {
-            var syncSymbol = (IMethodSymbol)_model.GetSymbolInfo(node).Symbol;
-            if (syncSymbol == null)
+            int cancellationTokenPos;
+            if (!IsInvocationExpressionRewritable(node, out cancellationTokenPos))
                 return node;
 
-            var cancellationTokenPos = -1;
+            var rewritten = RewriteInvocationExpression(node, cancellationTokenPos);
+            if (!(node.Parent is StatementSyntax))
+                rewritten = SyntaxFactory.ParenthesizedExpression(rewritten);
+            return SyntaxFactory.AwaitExpression(rewritten);
+        }
+
+        public bool IsInvocationExpressionRewritable(InvocationExpressionSyntax node, out int cancellationTokenPos)
+        {
+            cancellationTokenPos = -1;
+
+            var syncSymbol = (IMethodSymbol)_model.GetSymbolInfo(node).Symbol;
+            if (syncSymbol == null)
+                return false;
 
             // Skip invocations of methods that don't have [RewriteAsync], or an Async
             // counterpart to them
@@ -280,7 +292,7 @@ namespace AsyncRewriter
             else
             {
                 if (_excludeTypes.Contains(syncSymbol.ContainingType))
-                    return node;
+                    return false;
 
                 var asyncCandidates = syncSymbol.ContainingType.GetMembers(syncSymbol.Name + "Async").Cast<IMethodSymbol>().ToList();
 
@@ -309,20 +321,16 @@ namespace AsyncRewriter
                     else
                     {
                         // Couldn't find anything, don't rewrite the invocation
-                        return node;
+                        return false;
                     }
                 }
             }
 
             _log.Debug("    Found rewritable invocation: " + syncSymbol);
-
-            var rewritten = RewriteExpression(node, cancellationTokenPos);
-            if (!(node.Parent is StatementSyntax))
-                rewritten = SyntaxFactory.ParenthesizedExpression(rewritten);
-            return rewritten;
+            return true;
         }
 
-        ExpressionSyntax RewriteExpression(InvocationExpressionSyntax node, int cancellationTokenPos)
+        ExpressionSyntax RewriteInvocationExpression(InvocationExpressionSyntax node, int cancellationTokenPos)
         {
             InvocationExpressionSyntax rewrittenInvocation = null;
 
@@ -353,6 +361,15 @@ namespace AsyncRewriter
                     genericNameExp.WithIdentifier(SyntaxFactory.Identifier(genericNameExp.Identifier.Text + "Async"))
                 );
             }
+            else if (node.Expression is MemberBindingExpressionSyntax &&
+                     node.Parent is ConditionalAccessExpressionSyntax)
+            {
+                // This is somewhat of a special case...
+                // X?.Func() needs to be rewritten to await (X?.FuncAsync(CancellationToken token))
+                // So the await preceeds the ConditionalAccessExpression rather than the invocation.
+                // We have VisitConditionalAccessExpression below which takes care of this, ignore here.
+                return node;
+            }
             else throw new NotSupportedException($"It seems there's an expression type ({node.Expression.GetType().Name}) not yet supported by the AsyncRewriter");
 
             if (cancellationTokenPos != -1)
@@ -369,7 +386,21 @@ namespace AsyncRewriter
                     ));
             }
 
-            return SyntaxFactory.AwaitExpression(rewrittenInvocation);
+            return rewrittenInvocation;
+        }
+
+        public override SyntaxNode VisitConditionalAccessExpression(ConditionalAccessExpressionSyntax node)
+        {
+            var asInvocation = node.WhenNotNull as InvocationExpressionSyntax;
+            if (asInvocation == null)
+                return node;
+
+            int cancellationTokenPos;
+            if (!IsInvocationExpressionRewritable(asInvocation, out cancellationTokenPos))
+                return node;
+
+            var rewritten = node.WithWhenNotNull(RewriteInvocationExpression(asInvocation, cancellationTokenPos));
+            return SyntaxFactory.AwaitExpression(SyntaxFactory.ParenthesizedExpression(rewritten));
         }
 
         class ParameterComparer : IEqualityComparer<IParameterSymbol>
