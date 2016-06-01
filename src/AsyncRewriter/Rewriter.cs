@@ -23,6 +23,8 @@ namespace AsyncRewriter
         /// </summary>
         HashSet<ITypeSymbol> _excludedTypes;
 
+        public bool GenerateConfigureAwait { get; set; } = true;
+
         /// <summary>
         /// Using directives required for async, not expected to be in the source (sync) files
         /// </summary>
@@ -192,7 +194,7 @@ namespace AsyncRewriter
             _log.Debug("  Rewriting method {0} to {1}", inMethodSymbol.Name, outMethodName);
 
             // Visit all method invocations inside the method, rewrite them to async if needed
-            var rewriter = new MethodInvocationRewriter(_log, semanticModel, _excludedTypes, _cancellationTokenSymbol);
+            var rewriter = new MethodInvocationRewriter(_log, semanticModel, _excludedTypes, _cancellationTokenSymbol, GenerateConfigureAwait);
             var outMethod = (MethodDeclarationSyntax)rewriter.Visit(inMethodSyntax);
 
             // Method signature
@@ -248,15 +250,17 @@ namespace AsyncRewriter
         readonly SemanticModel _model;
         readonly HashSet<ITypeSymbol> _excludeTypes;
         readonly ITypeSymbol _cancellationTokenSymbol;
+        readonly bool _generateConfigureAwait;
         readonly ParameterComparer _paramComparer;
         readonly ILogger _log;
 
         public MethodInvocationRewriter(ILogger log, SemanticModel model, HashSet<ITypeSymbol> excludeTypes,
-                                        ITypeSymbol cancellationTokenSymbol)
+                                        ITypeSymbol cancellationTokenSymbol, bool generateConfigureAwait)
         {
             _log = log;
             _model = model;
             _cancellationTokenSymbol = cancellationTokenSymbol;
+            _generateConfigureAwait = generateConfigureAwait;
             _excludeTypes = excludeTypes;
             _paramComparer = new ParameterComparer();
         }
@@ -384,6 +388,23 @@ namespace AsyncRewriter
                     rewrittenInvocation = rewrittenInvocation.WithArgumentList(SyntaxFactory.ArgumentList(
                         rewrittenInvocation.ArgumentList.Arguments.Insert(cancellationTokenPos, cancellationTokenArg)
                     ));
+            }
+
+            if (_generateConfigureAwait)
+            {
+                rewrittenInvocation =
+                    SyntaxFactory.InvocationExpression(
+                        SyntaxFactory.MemberAccessExpression(
+                            SyntaxKind.SimpleMemberAccessExpression,
+                            rewrittenInvocation,
+                            SyntaxFactory.IdentifierName("ConfigureAwait")
+                        ),
+                        SyntaxFactory.ArgumentList(
+                            SyntaxFactory.SingletonSeparatedList(
+                                SyntaxFactory.Argument(
+                                    SyntaxFactory.LiteralExpression(
+                                        SyntaxKind.FalseLiteralExpression))))
+                    );
             }
 
             return rewrittenInvocation;
