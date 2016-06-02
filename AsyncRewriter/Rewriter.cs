@@ -30,6 +30,8 @@ namespace AsyncRewriter
         /// </summary>
         HashSet<ITypeSymbol> _excludedTypes;
 
+        public bool GenerateConfigureAwait { get; set; } = true;
+
         /// <summary>
         /// Using directives required for async, not expected to be in the source (sync) files
         /// </summary>
@@ -198,7 +200,7 @@ namespace AsyncRewriter
             _log.Debug("  Rewriting method {0} to {1}", inMethodSymbol.Name, outMethodName);
 
             // Visit all method invocations inside the method, rewrite them to async if needed
-            var rewriter = new MethodInvocationRewriter(_log, semanticModel, _excludedTypes);
+            var rewriter = new MethodInvocationRewriter(_log, semanticModel, _excludedTypes, GenerateConfigureAwait);
             var outMethod = (MethodDeclarationSyntax)rewriter.Visit(inMethodSyntax);
 
             // Method signature
@@ -243,13 +245,15 @@ namespace AsyncRewriter
     {
         readonly SemanticModel _model;
         readonly HashSet<ITypeSymbol> _excludeTypes;
+        readonly bool _generateConfigureAwait;
         readonly ILogger _log;
 
-        public MethodInvocationRewriter(ILogger log, SemanticModel model, HashSet<ITypeSymbol> excludeTypes)
+        public MethodInvocationRewriter(ILogger log, SemanticModel model, HashSet<ITypeSymbol> excludeTypes, bool generateConfigureAwait)
         {
             _log = log;
             _model = model;
             _excludeTypes = excludeTypes;
+            _generateConfigureAwait = generateConfigureAwait;
         }
 
         public override SyntaxNode VisitInvocationExpression(InvocationExpressionSyntax node)
@@ -278,41 +282,55 @@ namespace AsyncRewriter
 
         ExpressionSyntax RewriteExpression(InvocationExpressionSyntax node)
         {
-            var identifierName = node.Expression as IdentifierNameSyntax;
-            if (identifierName != null)
-            {
-                return SyntaxFactory.AwaitExpression(
-                    node.WithExpression(identifierName.WithIdentifier(
-                        SyntaxFactory.Identifier(identifierName.Identifier.Text + "Async")
-                    ))
-                );
-            }
+            InvocationExpressionSyntax rewrittenInvocation = null;
 
-            var memberAccessExp = node.Expression as MemberAccessExpressionSyntax;
-            if (memberAccessExp != null)
+            if (node.Expression is IdentifierNameSyntax) 
             {
+                var identifierName = (IdentifierNameSyntax)node.Expression;
+                rewrittenInvocation = node.WithExpression(identifierName.WithIdentifier(
+                    SyntaxFactory.Identifier(identifierName.Identifier.Text + "Async")
+                ));
+            }
+            else if (node.Expression is MemberAccessExpressionSyntax)
+            {
+                var memberAccessExp = (MemberAccessExpressionSyntax)node.Expression;
                 var nestedInvocation = memberAccessExp.Expression as InvocationExpressionSyntax;
                 if (nestedInvocation != null)
                     memberAccessExp = memberAccessExp.WithExpression((ExpressionSyntax)VisitInvocationExpression(nestedInvocation));
 
-                return SyntaxFactory.AwaitExpression(
-                    node.WithExpression(memberAccessExp.WithName(
-                        memberAccessExp.Name.WithIdentifier(SyntaxFactory.Identifier(memberAccessExp.Name.Identifier.Text + "Async"))
-                    ))
-                );
-            }
-
-            var genericNameExp = node.Expression as GenericNameSyntax;
-            if (genericNameExp != null)
-            {
-                return SyntaxFactory.AwaitExpression(
-                    node.WithExpression(
-                        genericNameExp.WithIdentifier(SyntaxFactory.Identifier(genericNameExp.Identifier.Text + "Async"))
+                rewrittenInvocation = node.WithExpression(memberAccessExp.WithName(
+                    memberAccessExp.Name.WithIdentifier(
+                        SyntaxFactory.Identifier(memberAccessExp.Name.Identifier.Text + "Async")
                     )
+                ));
+            }
+            else if (node.Expression is GenericNameSyntax)
+            {
+                var genericNameExp = (GenericNameSyntax)node.Expression;
+                rewrittenInvocation = node.WithExpression(
+                    genericNameExp.WithIdentifier(SyntaxFactory.Identifier(genericNameExp.Identifier.Text + "Async"))
                 );
             }
+            else throw new NotSupportedException($"It seems there's an expression type ({node.Expression.GetType().Name}) not yet supported by the AsyncRewriter");
 
-            throw new NotSupportedException($"It seems there's an expression type ({node.Expression.GetType().Name}) not yet supported by the AsyncRewriter");
+            if (_generateConfigureAwait)
+            {
+                rewrittenInvocation =
+                    SyntaxFactory.InvocationExpression(
+                        SyntaxFactory.MemberAccessExpression(
+                            SyntaxKind.SimpleMemberAccessExpression,
+                            rewrittenInvocation,
+                            SyntaxFactory.IdentifierName("ConfigureAwait")
+                        ),
+                        SyntaxFactory.ArgumentList(
+                            SyntaxFactory.SingletonSeparatedList(
+                                SyntaxFactory.Argument(
+                                    SyntaxFactory.LiteralExpression(
+                                        SyntaxKind.FalseLiteralExpression))))
+                    );
+            }
+
+            return SyntaxFactory.AwaitExpression(rewrittenInvocation);
         }
     }
 }
