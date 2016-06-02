@@ -372,7 +372,11 @@ namespace AsyncRewriter
                 // X?.Func() needs to be rewritten to await (X?.FuncAsync(CancellationToken token))
                 // So the await preceeds the ConditionalAccessExpression rather than the invocation.
                 // We have VisitConditionalAccessExpression below which takes care of this, ignore here.
-                return node;
+
+                var memberBindingExp = (MemberBindingExpressionSyntax)node.Expression;
+                rewrittenInvocation = node.WithExpression(
+                    memberBindingExp.WithName(SyntaxFactory.IdentifierName(memberBindingExp.Name + "Async"))
+                );
             }
             else throw new NotSupportedException($"It seems there's an expression type ({node.Expression.GetType().Name}) not yet supported by the AsyncRewriter");
 
