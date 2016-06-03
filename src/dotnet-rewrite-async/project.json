@@ -1,14 +1,20 @@
 {
   "version": "0.8.3",
-  "owners": [ "Shay Rojansky" ],
-  "authors": [ "Shay Rojansky" ],
-  "description": "Uses Roslyn to rewrite synchronous C# methods into async counterparts",
-  "compilationOptions": {
+  "packOptions": {
+    "owners": [ "Shay Rojansky" ],
+    "authors": [ "Shay Rojansky" ],
+    "description": "Uses Roslyn to rewrite synchronous C# methods into async counterparts",
+    "repository": {
+      "type": "git",
+      "url": "git://github.com/roji/AsyncRewriter"
+    }
+  },
+  "buildOptions": {
     "emitEntryPoint": true
   },
   "dependencies": {
     "Microsoft.Extensions.FileSystemGlobbing": "1.0.0-rc2-*",
-    "AsyncRewriter": "0.8.3"
+    "AsyncRewriter": "0.8.4"
   },
   "frameworks": {
     "net451": {
@@ -21,11 +27,11 @@
     "netstandard1.5": {
       "dependencies": {
         "Microsoft.NETCore.App": {
-          "version": "1.0.0-rc2-*",
+          "version": "1.0.0-rc2-3002702",
           "type": "platform"
         },
-        "System.Console": "4.0.0-*",
-        "System.Runtime": "4.1.0-*"
+        "System.Console": "4.0.0-rc2-24027",
+        "System.Runtime": "4.1.0-rc2-24027"
       }
     }
   }
