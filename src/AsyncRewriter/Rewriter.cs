@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics.Contracts;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -67,7 +66,6 @@ namespace AsyncRewriter
         {
             if (paths.All(p => Path.GetFileName(p) != "AsyncRewriterHelpers.cs"))
                 throw new ArgumentException("AsyncRewriterHelpers.cs must be included in paths", nameof(paths));
-            Contract.EndContractBlock();
 
             var syntaxTrees = paths.Select(p => SyntaxFactory.ParseSyntaxTree(File.ReadAllText(p))).ToArray();
 
