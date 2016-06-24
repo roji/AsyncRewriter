@@ -1,5 +1,5 @@
 {
-  "version": "0.8.3",
+  "version": "0.8.6",
   "packOptions": {
     "owners": [ "Shay Rojansky" ],
     "authors": [ "Shay Rojansky" ],
@@ -13,8 +13,8 @@
     "emitEntryPoint": true
   },
   "dependencies": {
-    "Microsoft.Extensions.FileSystemGlobbing": "1.0.0-rc2-*",
-    "AsyncRewriter": "0.8.4"
+    "Microsoft.Extensions.FileSystemGlobbing": "1.0.0",
+    "AsyncRewriter": "0.8.6"
   },
   "frameworks": {
     "net451": {
@@ -24,14 +24,14 @@
         "System.Threading.Tasks": "4.0.0.0"
       }
     },
-    "netstandard1.5": {
+    "netcoreapp1.0": {
       "dependencies": {
         "Microsoft.NETCore.App": {
-          "version": "1.0.0-rc2-3002702",
+          "version": "1.0.0",
           "type": "platform"
         },
-        "System.Console": "4.0.0-rc2-24027",
-        "System.Runtime": "4.1.0-rc2-24027"
+        "System.Console": "4.0.0",
+        "System.Runtime": "4.1.0"
       }
     }
   }
