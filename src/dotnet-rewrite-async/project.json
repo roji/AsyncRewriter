@@ -4,6 +4,7 @@
     "owners": [ "Shay Rojansky" ],
     "authors": [ "Shay Rojansky" ],
     "description": "Uses Roslyn to rewrite synchronous C# methods into async counterparts",
+    "packageType": "DotnetCliTool",
     "repository": {
       "type": "git",
       "url": "git://github.com/roji/AsyncRewriter"
