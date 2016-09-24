@@ -22,7 +22,7 @@ namespace AsyncRewriter
         /// </summary>
         HashSet<ITypeSymbol> _excludedTypes;
 
-        public bool GenerateConfigureAwait { get; set; } = true;
+        public bool GenerateConfigureAwait { get; set; } = false;
 
         /// <summary>
         /// Using directives required for async, not expected to be in the source (sync) files
