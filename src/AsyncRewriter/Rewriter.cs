@@ -86,11 +86,15 @@ namespace AsyncRewriter
         {
             var rewrittenTrees = Rewrite(syntaxTrees, compilation, excludedTypes).ToArray();
 
+            var usings = rewrittenTrees.SelectMany(t => t.GetCompilationUnitRoot().Usings).ToList();
+            // Add "Resharper disable all" comment
+            usings[usings.Count - 1] = usings[usings.Count - 1].WithTrailingTrivia(
+                SyntaxTriviaList.Create(SyntaxFactory.Comment("\n// Resharper disable all"))
+            );
+
             return SyntaxFactory.SyntaxTree(
                 SyntaxFactory.CompilationUnit()
-                    .WithUsings(SyntaxFactory.List(
-                        rewrittenTrees.SelectMany(t => t.GetCompilationUnitRoot().Usings)
-                    ))
+                    .WithUsings(SyntaxFactory.List(usings))
                     .WithMembers(SyntaxFactory.List<MemberDeclarationSyntax>(
                         rewrittenTrees
                             .SelectMany(t => t.GetCompilationUnitRoot().Members)
