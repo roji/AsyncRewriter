@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -72,7 +73,8 @@ namespace AsyncRewriter
             var compilation = CSharpCompilation.Create("Temp", syntaxTrees, null, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary))
                 .AddReferences(
                         MetadataReference.CreateFromFile(typeof(object).GetTypeInfo().Assembly.Location),
-                        MetadataReference.CreateFromFile(typeof(Stream).GetTypeInfo().Assembly.Location)
+                        MetadataReference.CreateFromFile(typeof(Stream).GetTypeInfo().Assembly.Location),
+                        MetadataReference.CreateFromFile(typeof(DbConnection).GetTypeInfo().Assembly.Location)
                 );
             if (additionalAssemblyNames != null)
             {
@@ -134,7 +136,7 @@ namespace AsyncRewriter
             {
                 var semanticModel = compilation.GetSemanticModel(syntaxTree, true);
                 if (semanticModel == null)
-                    throw new ArgumentException("A provided syntax tree was compiled into the provided compilation");
+                    throw new ArgumentException("A provided syntax tree wasn't compiled into the provided compilation");
 
                 var usings = syntaxTree.GetCompilationUnitRoot().Usings;
 
