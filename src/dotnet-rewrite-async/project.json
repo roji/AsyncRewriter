@@ -1,5 +1,5 @@
 {
-  "version": "0.8.6",
+  "version": "0.8.6.1",
   "packOptions": {
     "owners": [ "Shay Rojansky" ],
     "authors": [ "Shay Rojansky" ],
@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "Microsoft.Extensions.FileSystemGlobbing": "1.0.0",
-    "AsyncRewriter": "0.8.6"
+    "AsyncRewriter": "0.8.6.1"
   },
   "frameworks": {
     "net451": {
