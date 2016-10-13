@@ -76,6 +76,15 @@ namespace AsyncRewriter
                         MetadataReference.CreateFromFile(typeof(Stream).GetTypeInfo().Assembly.Location),
                         MetadataReference.CreateFromFile(typeof(DbConnection).GetTypeInfo().Assembly.Location)
                 );
+
+#if NETSTANDARD1_5
+            var assemblyPath = Path.GetDirectoryName(typeof(object).GetTypeInfo().Assembly.Location);
+            compilation = compilation.AddReferences(
+                MetadataReference.CreateFromFile(Path.Combine(assemblyPath, "System.Runtime.dll")),
+                MetadataReference.CreateFromFile(Path.Combine(assemblyPath, "mscorlib.dll"))
+            );
+#endif
+
             if (additionalAssemblyNames != null)
             {
                 compilation = compilation.AddReferences(additionalAssemblyNames.Select(n => MetadataReference.CreateFromFile(n)));
